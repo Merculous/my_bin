@@ -1,0 +1,3 @@
+#!/bin/sh
+
+zstdmt -T24 --ultra -22 -vvv < "$1" > "$1.zst"

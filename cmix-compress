@@ -1,0 +1,3 @@
+#!/bin/sh
+
+cmix -c "$1" "$1.cmx"

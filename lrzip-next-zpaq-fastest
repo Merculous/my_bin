@@ -1,0 +1,3 @@
+#!/bin/sh
+
+lrzip-next -T -z -L1 -vv < "$1" > "$1.zpaq.lrz"

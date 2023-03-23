@@ -1,0 +1,3 @@
+#!/bin/sh
+
+pbzip2 -kvd "$1"

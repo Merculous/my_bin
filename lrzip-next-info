@@ -1,0 +1,3 @@
+#!/bin/sh
+
+lrzip-next -ivv "$1"

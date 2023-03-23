@@ -1,0 +1,3 @@
+#!/bin/sh
+
+tar-pipe "$1" | fxz-max

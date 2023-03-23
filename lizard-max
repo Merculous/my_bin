@@ -1,0 +1,3 @@
+#!/bin/sh
+
+lizard -k49 < "$1" | pv > "$1.liz"

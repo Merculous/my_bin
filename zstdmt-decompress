@@ -1,0 +1,3 @@
+#!/bin/sh
+
+zstdmt -T24 -kvvvd "$1"

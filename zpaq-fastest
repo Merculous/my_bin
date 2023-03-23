@@ -1,0 +1,3 @@
+#!/bin/sh
+
+zpaq a "$1.zpaq" "$1"

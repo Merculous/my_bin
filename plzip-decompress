@@ -1,0 +1,3 @@
+#!/bin/sh
+
+plzip -kvvd "$1"
