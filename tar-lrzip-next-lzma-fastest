@@ -1,3 +1,3 @@
 #!/bin/sh
 
-tar-pipe "$1" | lrzip-next-lzma-fastest
+tar-pipe "$1" | lrzip-next-lzma-fastest > "$1.tar.lrz"

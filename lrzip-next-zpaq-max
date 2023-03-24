@@ -1,3 +1,3 @@
 #!/bin/sh
 
-lrzip-next -T -z -L9 -vv < "$1" > "$1.zpaq.lrz"
+lrzip-next -T -z -L9 -vv "$@"
