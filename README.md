@@ -1,9 +1,3 @@
-# NOTES
-
-Can't figure out why my pv works but tar-pv doesn't work...
-As a matter of fact, iirc, everything within this folder,
-if it is being piped, it gives me this error: "pv: : No such file or directory"
-
 # 7zz
 
 https://github.com/p7zip-project/p7zip
