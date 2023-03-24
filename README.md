@@ -1,3 +1,7 @@
+# NOTES
+
+Some reason only lzop and pigz don't work when piping to pv (they write to /dev/null no problem)
+
 # 7zz
 
 https://github.com/p7zip-project/p7zip
