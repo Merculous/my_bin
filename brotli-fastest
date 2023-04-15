@@ -1,0 +1,3 @@
+#!/bin/sh
+
+brotli -kv0 "$1"
