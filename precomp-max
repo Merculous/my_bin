@@ -1,0 +1,3 @@
+#!/bin/sh
+
+precomp -e -intense -brute "$1"
