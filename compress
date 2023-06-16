@@ -188,22 +188,18 @@ def compress(path: str, level: str) -> dict:
 
 
 def findBestMethod(results: dict) -> tuple:
-    best_time = float('inf')
-    best_size = float('inf')
+    smallest_size = float('inf')
+    mean_time = sum(result['time'] for result in results.values()) / len(results)
     best_method = None
 
-    for method, data in results.items():
-        time = data['time']
-        size = data['size']
-
-        if time < best_time or (time == best_time and size < best_size):
-            best_time = time
-            best_size = size
+    for method, result in results.items():
+        if result['size'] < smallest_size and result['time'] < mean_time:
+            smallest_size = result['size']
             best_method = method
 
-    best = (best_method, int(best_size), float(f'{best_time:.6f}'))
+    best = (best_method, smallest_size, float(f'{mean_time:.6f}'))
 
-    if best_method is not None:
+    if best_method:
         return best
     else:
         return None
