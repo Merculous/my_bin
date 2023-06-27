@@ -75,8 +75,11 @@ programs = {
 }
 
 
-def runCMD(args: tuple) -> None:
-    subprocess.run(args)
+def runCMD(args: tuple) -> tuple:
+    start = timeit.default_timer()
+    cmd = subprocess.run(args)
+    end = timeit.default_timer() - start
+    return (float(f'{end:.6f}'), cmd.returncode)
 
 
 def makeTar(path: str) -> None:
@@ -134,12 +137,14 @@ def compress(path: str, level: str) -> dict:
         extension = programs['extensions'][archiver_name]
         full_name = f'{path}.{extension}'
 
-        duration = timeit.timeit(lambda: runCMD(cmd), number=1)
+        duration, returncode = runCMD(cmd)
+
         size = getFileSize(full_name)
 
         results[archiver_name] = {
-            'time': float(f'{duration:.6f}'),
-            'size': size
+            'time': duration,
+            'size': size,
+            'returncode': returncode
         }
 
     tar_path = f'{path_name}.tar'
@@ -158,7 +163,7 @@ def compress(path: str, level: str) -> dict:
         extension = programs['extensions'][compressor_name]
         full_name = f'{tar_path}.{extension}'
 
-        duration = timeit.timeit(lambda: runCMD(cmd), number=1)
+        duration, returncode = runCMD(cmd)
 
         # FIXME
         # lrzip-next-lzma works but lrzip-next-zpaq fails to write the file -___-
@@ -178,8 +183,9 @@ def compress(path: str, level: str) -> dict:
             size = getFileSize(full_name)
 
         results[compressor_name] = {
-            'time': float(f'{duration:.6f}'),
-            'size': size
+            'time': duration,
+            'size': size,
+            'returncode': returncode
         }
 
     Path(tar_path).unlink()
@@ -193,6 +199,10 @@ def findBestMethod(results: dict) -> tuple:
     best_method = None
 
     for method, result in results.items():
+        if result['returncode'] != 0:
+            print(f'{method} failed!')
+            continue
+
         if result['size'] < smallest_size and result['time'] < mean_time:
             smallest_size = result['size']
             best_method = method
