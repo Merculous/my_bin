@@ -197,7 +197,7 @@ def compress(path: str, level: str) -> dict:
     return results
 
 
-def findBestMethod(results: dict) -> tuple:
+def findBestMethod(results: dict) -> None:
     durations = []
     sizes = []
 
@@ -259,6 +259,7 @@ def main() -> None:
         clean(args.i[0])
     else:
         parser.print_help()
+
 
 if __name__ == '__main__':
     main()
