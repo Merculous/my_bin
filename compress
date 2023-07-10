@@ -150,6 +150,10 @@ def compress(path: str, level: str) -> dict:
     tar_path = f'{path_name}.tar'
     makeTar(path_name)
 
+    # Supressing stdout with subprocess.run makes
+    # lizard not work.
+    # FIXME
+
     for compressor in methods_tar:
         cmd = (compressor, tar_path)
 
@@ -194,25 +198,47 @@ def compress(path: str, level: str) -> dict:
 
 
 def findBestMethod(results: dict) -> tuple:
-    smallest_size = float('inf')
-    mean_time = sum(result['time'] for result in results.values()) / len(results)
-    best_method = None
+    durations = []
+    sizes = []
 
-    for method, result in results.items():
-        if result['returncode'] != 0:
-            print(f'{method} failed!')
+    for method in results:
+        if results[method]['returncode'] != 0:
+            print(f'{method} failed! Skipping...')
             continue
 
-        if result['size'] < smallest_size and result['time'] < mean_time:
-            smallest_size = result['size']
-            best_method = method
+        durations.append(results[method]['time'])
+        sizes.append(results[method]['size'])
 
-    best = (best_method, smallest_size, float(f'{mean_time:.6f}'))
+    mean_duration = sum(durations) / len(durations)
+    mean_duration = float(f'{mean_duration:.6f}')
 
-    if best_method:
-        return best
-    else:
-        return None
+    mean_size = sum(sizes) // len(sizes)
+
+    good_values = []
+
+    for duration, size in zip(durations, sizes):
+        if duration <= mean_duration and size <= mean_size:
+            good_values.append((duration, size))
+
+    good_values = sorted(good_values)
+
+    for value in good_values:
+        for method in results:
+            method_time = results[method]['time']
+            method_size = results[method]['size']
+
+            if value[0] == method_time and value[1] == method_size:
+                time_formatted = f'{value[0] * 1000:.4f} ms'
+                size_formatted = f'{value[1] / (1024 * 1024):.2f} MB'
+                print(f'{method} {time_formatted} {size_formatted}')
+
+
+def clean(name: str) -> None:
+    for match in Path().glob('*'):
+        if match.is_file():
+            if name in match.name:
+                print(f'Removing: {match.name}')
+                match.unlink()
 
 
 def main() -> None:
@@ -220,22 +246,19 @@ def main() -> None:
     parser.add_argument('-i', nargs=1, type=str, required=True)
     parser.add_argument('--fast', action='store_true')
     parser.add_argument('--max', action='store_true')
+    parser.add_argument('--clean', action='store_true')
     args = parser.parse_args()
 
     if args.fast:
         results = compress(args.i[0], 'fast')
+        findBestMethod(results)
     elif args.max:
         results = compress(args.i[0], 'max')
+        findBestMethod(results)
+    elif args.clean:
+        clean(args.i[0])
     else:
         parser.print_help()
-
-    best_method = findBestMethod(results)
-
-    if best_method:
-        print(best_method)
-    else:
-        print('Huh? No best method found?')
-
 
 if __name__ == '__main__':
     main()
