@@ -290,6 +290,24 @@ def compress(path: str, level: str, methods: tuple = None) -> dict:
     return results
 
 
+# FIXME
+# The code right now prefers compression time over filesizes.
+# That's good, but some cases if the time isn't much different,
+# filesize is a better measure of being "good."
+
+# I might be able to do some janky math where I can compare
+# differences in the previous values, probably using absolute value?
+
+# I have mean time/size in the same statement. I may need to separate
+# these. I might start with mean size first, then mean duration?
+
+# Depending on compression, especially when deduplication really makes
+# a difference, some cases can really show that the ones picked by this
+# code aren't great. I could have 100MB+ difference in size, but my current
+# code doesn't pick this up. If the fastest is still 100MB+ more in size,
+# I'd rather take the one that's 100MB+ smaller, pretty in any case, but
+# should only really apply if decompression speed is good.
+
 def findBestMethod(results: dict) -> None:
     durations = []
     sizes = []
