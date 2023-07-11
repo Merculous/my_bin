@@ -1,3 +1,0 @@
-#!/bin/sh
-
-tar-pipe "$1" | lizard-max | pv > "$1.tar.liz"

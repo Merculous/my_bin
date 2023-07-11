@@ -1,3 +1,0 @@
-#!/bin/sh
-
-tar-pipe "$1" | pigz-fastest > "$1.tar.gz"

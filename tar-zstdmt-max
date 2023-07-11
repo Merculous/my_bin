@@ -1,3 +1,0 @@
-#!/bin/sh
-
-tar-pipe "$1" | zstdmt-max > "$1.tar.zst"

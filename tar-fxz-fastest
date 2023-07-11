@@ -1,3 +1,0 @@
-#!/bin/sh
-
-tar-pipe "$1" | fxz-fastest > "$1.tar.xz"
