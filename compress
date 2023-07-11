@@ -88,6 +88,30 @@ def selectMethods(methods: tuple, prompt: str) -> list:
     print(len(methods), 'all')
 
     selected_methods = input().split(',')
+
+    to_replace = []
+
+    for i, method in enumerate(selected_methods):
+        if '*' in method:
+            method = method.split('*')
+
+            new = []
+
+            for x in range(int(method[0]), int(method[1]) + 1):
+                new.append(x)
+
+            to_replace.append((i, new))
+
+    if to_replace:
+        selected_tmp = selected_methods[:]
+
+        for r in to_replace:
+            del selected_tmp[r[0]]
+
+        selected_tmp.extend(r[1])
+        selected_methods = selected_tmp
+
+    # Remove empty str's and convert str's to actual numbers
     selected_methods = [int(x) for x in selected_methods if x]
 
     if len(selected_methods) <= len(methods) and len(selected_methods) != 0:
@@ -112,8 +136,12 @@ def methodsToUse(level: str) -> tuple:
 
     to_use = []
 
-    archiver_prompt = 'Select which archiver(s) to use separated by commas.'
-    compressor_prompt = 'Select which compressor(s) to use separated by commas.'
+    prompt_suffix = 'separated by commas and or numbers with * in between.'
+
+    archiver_prompt = 'Select which archiver(s) ' + prompt_suffix
+    compressor_prompt = 'Select which compressor(s) ' + prompt_suffix
+
+    print('Example: 0,1,2,3 or 2*5 or 0,1,2*7')
 
     selected_archivers = selectMethods(archivers, archiver_prompt)
     to_use.extend(selected_archivers)
