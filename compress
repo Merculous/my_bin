@@ -74,10 +74,59 @@ programs = {
     }
 }
 
+valid_levels = ('fast', 'max')
+
+
+def selectMethods(methods: tuple, prompt: str) -> list:
+    selected = []
+
+    print(prompt)
+
+    for i, method in enumerate(methods):
+        print(i, method)
+
+    print(len(methods), 'all')
+
+    selected_methods = input().split(',')
+    selected_methods = [int(x) for x in selected_methods if x]
+
+    if len(selected_methods) <= len(methods) and len(selected_methods) != 0:
+        if len(methods) in selected_methods:
+            # User asked to use 'all' values
+            selected.extend(methods)
+        else:
+            selected.extend([methods[s] for s in selected_methods])
+    else:
+        print(f'Selected: {selected_methods}')
+        raise Exception('Nothing was selected!')
+
+    return selected
+
+
+def methodsToUse(level: str) -> tuple:
+    if level not in valid_levels:
+        raise Exception
+
+    archivers = programs[level]['no tar']
+    compressors = programs[level]['tar']
+
+    to_use = []
+
+    archiver_prompt = 'Select which archiver(s) to use separated by commas.'
+    compressor_prompt = 'Select which compressor(s) to use separated by commas.'
+
+    selected_archivers = selectMethods(archivers, archiver_prompt)
+    to_use.extend(selected_archivers)
+
+    selected_compressors = selectMethods(compressors, compressor_prompt)
+    to_use.extend(selected_compressors)
+
+    return tuple(to_use)
+
 
 def runCMD(args: tuple) -> tuple:
     start = timeit.default_timer()
-    cmd = subprocess.run(args)
+    cmd = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     end = timeit.default_timer() - start
     return (float(f'{end:.6f}'), cmd.returncode)
 
@@ -100,9 +149,7 @@ def renameFile(path: str, new: str) -> None:
     shutil.move(path, new)
 
 
-def compress(path: str, level: str) -> dict:
-    valid_levels = ('fast', 'max')
-
+def compress(path: str, level: str, methods: tuple = None) -> dict:
     if level not in valid_levels:
         raise Exception
 
@@ -125,8 +172,22 @@ def compress(path: str, level: str) -> dict:
     else:
         raise Exception('We got here')
 
-    methods_tar = programs[level]['tar']
-    methods_archiver = programs[level]['no tar']
+    # To enable using selected vs pre-selected, lazily use a list comprehension
+
+    methods_tar = [t for t in programs[level]['tar']]
+    methods_archiver = [n for n in programs[level]['no tar']]
+
+    # FIXME
+    # Enable user to not select any archivers or compressors
+
+    # This means either 1 or more archivers and no compressors
+    # or
+    # 1 or more compressors and no archivers
+
+    if methods:
+        # User selected which methods to use.
+        methods_tar = [t for t in methods if t in methods_tar]
+        methods_archiver = [t for t in methods if t in methods_archiver]
 
     results = {}
 
@@ -136,6 +197,8 @@ def compress(path: str, level: str) -> dict:
         archiver_name = archiver.split('-')[0]
         extension = programs['extensions'][archiver_name]
         full_name = f'{path}.{extension}'
+
+        print(f'Compressing with archiver: {archiver}')
 
         duration, returncode = runCMD(cmd)
 
@@ -166,6 +229,8 @@ def compress(path: str, level: str) -> dict:
 
         extension = programs['extensions'][compressor_name]
         full_name = f'{tar_path}.{extension}'
+
+        print(f'Compressing with compressor: {compressor}')
 
         duration, returncode = runCMD(cmd)
 
@@ -217,6 +282,12 @@ def findBestMethod(results: dict) -> None:
     good_values = []
 
     for duration, size in zip(durations, sizes):
+        # FIXME
+        # This may need to be changed, I've tested with less
+        # methods and I managed to get only one value at the end.
+        # This is ok for now, but I should probably still print
+        # all of the results with their duration and sizes, still
+        # sorted though.
         if duration <= mean_duration and size <= mean_size:
             good_values.append((duration, size))
 
@@ -228,10 +299,13 @@ def findBestMethod(results: dict) -> None:
             method_size = results[method]['size']
 
             if value[0] == method_time and value[1] == method_size:
-                time_formatted = f'{value[0] * 1000:.4f} ms'
+                time_formatted = f'{value[0]} seconds / {value[0] * 1000} ms'
                 size_formatted = f'{value[1] / (1024 * 1024):.2f} MB'
                 print(f'{method} {time_formatted} {size_formatted}')
 
+
+# FIXME
+# Doesn't remove files with the same name
 
 def clean(name: str) -> None:
     for match in Path().glob('*'):
@@ -247,16 +321,30 @@ def main() -> None:
     parser.add_argument('--fast', action='store_true')
     parser.add_argument('--max', action='store_true')
     parser.add_argument('--clean', action='store_true')
+    parser.add_argument('--select', action='store_true')
     args = parser.parse_args()
 
     if args.fast:
-        results = compress(args.i[0], 'fast')
+        if args.select:
+            methods = methodsToUse('fast')
+            results = compress(args.i[0], 'fast', methods)
+        else:
+            results = compress(args.i[0], 'fast')
+
         findBestMethod(results)
+
     elif args.max:
-        results = compress(args.i[0], 'max')
+        if args.select:
+            methods = methodsToUse('max')
+            results = compress(args.i[0], 'max', methods)
+        else:
+            results = compress(args.i[0], 'max')
+
         findBestMethod(results)
+
     elif args.clean:
         clean(args.i[0])
+
     else:
         parser.print_help()
 
