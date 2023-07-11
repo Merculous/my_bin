@@ -299,7 +299,7 @@ def findBestMethod(results: dict) -> None:
             method_size = results[method]['size']
 
             if value[0] == method_time and value[1] == method_size:
-                time_formatted = f'{value[0]} seconds / {value[0] * 1000} ms'
+                time_formatted = f'{value[0]} seconds / {int(value[0] * 1000)} ms'
                 size_formatted = f'{value[1] / (1024 * 1024):.2f} MB'
                 print(f'{method} {time_formatted} {size_formatted}')
 
