@@ -339,6 +339,8 @@ def findBestMethod(results: dict) -> None:
 
     good_values = sorted(good_values)
 
+    print('Best methods:')
+
     for value in good_values:
         for method in results:
             method_time = results[method]['time']
@@ -348,6 +350,26 @@ def findBestMethod(results: dict) -> None:
                 time_formatted = f'{value[0]} seconds / {int(value[0] * 1000)} ms'
                 size_formatted = f'{value[1] / (1024 * 1024):.2f} MB'
                 print(f'{method} {time_formatted} {size_formatted}')
+
+    print('Overall results: sizes sorted')
+
+    sizes = sorted(sizes)
+
+    for size in sizes:
+        for method in results:
+            method_time = results[method]['time']
+            method_size = results[method]['size']
+
+            if size == method_size:
+                time_formatted = f'{method_time} seconds / {int(method_time * 1000)} ms'
+                size_formatted = f'{size / (1024 * 1024):.2f} MB'
+                print(f'{method} {time_formatted} {size_formatted}')
+
+    print('Mean time:')
+    print(f'{mean_duration} seconds / {int(mean_duration * 1000)} ms')
+
+    print('Mean size:')
+    print(f'{mean_size / (1024 * 1024):.2f} MB')
 
 
 # FIXME
