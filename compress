@@ -287,26 +287,30 @@ def compress(path: str, level: str, methods: tuple = None) -> dict:
 
     Path(tar_path).unlink()
 
+    # Clear the screen without using system()
+    print('\x1b[2J\x1b[H', end='')
+
     return results
 
 
-# FIXME
-# The code right now prefers compression time over filesizes.
-# That's good, but some cases if the time isn't much different,
-# filesize is a better measure of being "good."
+def formatTime(time: float) -> str:
+    return f'{time:.6f} seconds / {int(time * 1000)} ms'
 
-# I might be able to do some janky math where I can compare
-# differences in the previous values, probably using absolute value?
 
-# I have mean time/size in the same statement. I may need to separate
-# these. I might start with mean size first, then mean duration?
+def formatSize(size: int) -> str:
+    return f'{size / (1024 * 1024):.2f} MB'
 
-# Depending on compression, especially when deduplication really makes
-# a difference, some cases can really show that the ones picked by this
-# code aren't great. I could have 100MB+ difference in size, but my current
-# code doesn't pick this up. If the fastest is still 100MB+ more in size,
-# I'd rather take the one that's 100MB+ smaller, pretty in any case, but
-# should only really apply if decompression speed is good.
+
+def printResultFormatted(method: str, time: float = None, size: int = None) -> None:
+    if time and not size:
+        print(f'{method} {formatTime(time)}')
+    elif size and not time:
+        print(f'{method} {formatSize(size)}')
+    elif time and size:
+        print(f'{method} {formatTime(time)} {formatSize(size)}')
+    else:
+        raise Exception('No time or size was passed!')
+
 
 def findBestMethod(results: dict) -> None:
     durations = []
@@ -314,66 +318,65 @@ def findBestMethod(results: dict) -> None:
 
     for method in results:
         if results[method]['returncode'] != 0:
-            print(f'{method} failed! Skipping...')
             continue
 
         durations.append(results[method]['time'])
         sizes.append(results[method]['size'])
 
-    mean_duration = sum(durations) / len(durations)
-    mean_duration = float(f'{mean_duration:.6f}')
-
+    mean_time = sum(durations) / len(durations)
     mean_size = sum(sizes) // len(sizes)
 
-    good_values = []
+    print(f'Mean time: {formatTime(mean_time)}')
+    print(f'Mean size: {formatSize(mean_size)}')
 
-    for duration, size in zip(durations, sizes):
-        # FIXME
-        # This may need to be changed, I've tested with less
-        # methods and I managed to get only one value at the end.
-        # This is ok for now, but I should probably still print
-        # all of the results with their duration and sizes, still
-        # sorted though.
-        if duration <= mean_duration and size <= mean_size:
-            good_values.append((duration, size))
+    print()
 
-    good_values = sorted(good_values)
+    average_methods = {}
 
-    print('Best methods:')
+    for method in results:
+        method_time = results[method]['time']
+        method_size = results[method]['size']
 
-    for value in good_values:
+        if method_time <= mean_time and method_size <= mean_size:
+            if method not in average_methods:
+                average_methods[method] = results[method]
+
+    print()
+
+    print('Methods <= average:')
+
+    for method in average_methods:
+        method_time = average_methods[method]['time']
+        method_size = average_methods[method]['size']
+
+        printResultFormatted(method, method_time, method_size)
+
+    sizes_sorted = sorted(sizes)
+
+    print()
+
+    print('Methods with sizes sorted:')
+
+    for size in sizes_sorted:
         for method in results:
-            method_time = results[method]['time']
-            method_size = results[method]['size']
+            if size == results[method]['size']:
+                printResultFormatted(method, size=size)
 
-            if value[0] == method_time and value[1] == method_size:
-                time_formatted = f'{value[0]} seconds / {int(value[0] * 1000)} ms'
-                size_formatted = f'{value[1] / (1024 * 1024):.2f} MB'
-                print(f'{method} {time_formatted} {size_formatted}')
+    durations_sorted = sorted(durations)
 
-    print('Overall results: sizes sorted')
+    print()
 
-    sizes = sorted(sizes)
+    print('Methods with durations sorted:')
 
-    for size in sizes:
+    for duration in durations_sorted:
         for method in results:
-            method_time = results[method]['time']
-            method_size = results[method]['size']
-
-            if size == method_size:
-                time_formatted = f'{method_time} seconds / {int(method_time * 1000)} ms'
-                size_formatted = f'{size / (1024 * 1024):.2f} MB'
-                print(f'{method} {time_formatted} {size_formatted}')
-
-    print('Mean time:')
-    print(f'{mean_duration} seconds / {int(mean_duration * 1000)} ms')
-
-    print('Mean size:')
-    print(f'{mean_size / (1024 * 1024):.2f} MB')
+            if duration == results[method]['time']:
+                printResultFormatted(method, time=duration)
 
 
 # FIXME
 # Doesn't remove files with the same name
+
 
 def clean(name: str) -> None:
     for match in Path().glob('*'):
