@@ -177,13 +177,9 @@ def renameFile(path: str, new: str) -> None:
     shutil.move(path, new)
 
 
-def compress(path: str, level: str, methods: tuple = None) -> dict:
-    if level not in valid_levels:
-        raise Exception
-
+def handlePath(path: str) -> Path:
     path = Path(path)
     path_parent = path.parent.resolve()
-    path_name = path.name
 
     cwd = Path().resolve()
 
@@ -194,11 +190,117 @@ def compress(path: str, level: str, methods: tuple = None) -> dict:
 
         if cwd_test != path_parent:
             raise Exception('Failed to change directory!')
+
     elif cwd == path_parent:
         # path IS inside the directory where already in
         pass
     else:
         raise Exception('We got here')
+
+    return path
+
+
+def compress(path: str, name: str, args: str) -> None:
+    # Use this function if you want to compress a directory
+    # if you only want to use one method, but with supplied
+    # arguments. This will return the time and filesize.
+
+    # -a=arguments OR if spaces exist, args must be in ""
+
+    args = args.split(' ')
+
+    # Allow usage of {i} to enable the user to replace {i} with the
+    # supplied input.
+
+    new_args = args[:]
+
+    for i, arg in enumerate(args):
+        if '{i}' in arg:
+            new_args[i] = arg.replace('{i}', path)
+
+    archivers = programs['fast']['no tar']
+    compressors = programs['fast']['tar']
+
+    available = {'archivers': [], 'compressors': []}
+
+    for archiver in archivers:
+        new_name = archiver.split('-')
+
+        if len(new_name) == 2:
+            if new_name[0] not in available['archivers']:
+                available['archivers'].append(new_name[0])
+        else:
+            print('Archiver name len > 2!')
+
+    for compressor in compressors:
+        new_name = compressor.split('-')
+
+        if len(new_name) == 2:
+            if new_name[0] not in available['compressors']:
+                available['compressors'].append(new_name[0])
+
+        elif len(new_name) == 4:
+            if new_name[0] == 'lrzip' and new_name[1] == 'next':
+                lrzn = 'lrzip-next'
+
+                if lrzn not in available['compressors']:
+                    available['compressors'].append(lrzn)
+
+        else:
+            print('Compressor name len != 2 or 4!')
+
+    is_tar = False
+
+    if name in available['archivers']:
+        cmd = (name, *new_args)
+
+    elif name in available['compressors']:
+        print(f'{name} requires tar. Creating tar now!')
+
+        is_tar = True
+
+        makeTar(path)
+
+        cmd = (name, *new_args)
+
+    else:
+        raise Exception(f'{name} is not a supported method!')
+
+    extension = programs['extensions'][name]
+
+    print(f'Running command: {cmd}')
+
+    time, returncode = runCMD(cmd)
+
+    if returncode != 0:
+        raise Exception(f'{name} failed!')
+
+    if is_tar is True:
+        filename = f'{path}.tar.{extension}'
+    elif is_tar is False:
+        filename = f'{path}.{extension}'
+    else:
+        raise ValueError(f'is_tar is not a bool!')
+
+    # FIXME
+    # This will not work if the user makes the output file
+    # not adhere to '"input"."extension"'. Need to fix this.
+    # I could do some checking in (new_)args to see if some
+    # of the name is in there. If it is, I can adapt the
+    # check to change the filename variable.
+
+    filesize = getFileSize(filename)
+
+    print(filename)
+
+    printResultFormatted(name, time, filesize)
+
+
+def compressAll(path: str, level: str, methods: tuple = None) -> dict:
+    if level not in valid_levels:
+        raise Exception
+
+    path_name = handlePath(path).name
 
     # To enable using selected vs pre-selected, lazily use a list comprehension
 
@@ -388,30 +490,40 @@ def clean(name: str) -> None:
 
 def main() -> None:
     parser = ArgumentParser()
+
     parser.add_argument('-i', nargs=1, type=str, required=True)
+
+    parser.add_argument('-n', nargs=1, type=str)
+
+    parser.add_argument('-a', nargs='?', type=str)
+
     parser.add_argument('--fast', action='store_true')
     parser.add_argument('--max', action='store_true')
     parser.add_argument('--clean', action='store_true')
     parser.add_argument('--select', action='store_true')
+
     args = parser.parse_args()
 
     if args.fast:
         if args.select:
             methods = methodsToUse('fast')
-            results = compress(args.i[0], 'fast', methods)
+            results = compressAll(args.i[0], 'fast', methods)
         else:
-            results = compress(args.i[0], 'fast')
+            results = compressAll(args.i[0], 'fast')
 
         findBestMethod(results)
 
     elif args.max:
         if args.select:
             methods = methodsToUse('max')
-            results = compress(args.i[0], 'max', methods)
+            results = compressAll(args.i[0], 'max', methods)
         else:
-            results = compress(args.i[0], 'max')
+            results = compressAll(args.i[0], 'max')
 
         findBestMethod(results)
+
+    elif args.n and args.a:
+        compress(args.i[0], args.n[0], args.a)
 
     elif args.clean:
         clean(args.i[0])
