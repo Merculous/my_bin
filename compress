@@ -6,6 +6,9 @@ import tempfile
 from argparse import ArgumentParser
 from pathlib import Path
 
+def bytesToMB(n):
+    return n / (1024*1024)
+
 
 def getFileSize(src):
     return Path(src).stat().st_size
@@ -220,13 +223,13 @@ def doZstd(src, dst, *args):
 
 def go(func, src, dst, *args):
     in_size = getPathSize(src)
-    in_size_str = f'{round(in_size / (1024*1024), 2)} MB'
+    in_size_str = f'{round(bytesToMB(in_size), 2)} MB'
 
     duration = round(func(src, dst, *args), 4)
     duration_str = f'{duration} sec(s)'
 
     out_size = getPathSize(dst)
-    out_size_str = f'{round(out_size / (1024*1024), 2)} MB'
+    out_size_str = f'{round(bytesToMB(out_size), 2)} MB'
 
     speed = (out_size / duration) / (1024*1024)
     speed_str = f'{round(speed, 2)} MB/s'
