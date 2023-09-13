@@ -1,536 +1,262 @@
 #!/usr/bin/env python3
 
-import os
-import shutil
 import subprocess
-import timeit
+import time
+import tempfile
 from argparse import ArgumentParser
 from pathlib import Path
 
-programs = {
-    'fast': {
-        'tar': (
-            'brotli-fastest',
-            'bzip3-compress',
-            'fxz-fastest',
-            'lizard-fastest',
-            'lrzip-next-lzma-fastest',
-            'lrzip-next-zpaq-fastest',
-            'lz4-fast',
-            'lzop-fastest',
-            'pbzip2-fastest',
-            'pigz-fastest',
-            'plzip-fastest',
-            'rzip64-fastest',
-            'zstdmt-fast'
-        ),
-        'no tar': (
-            '7zz-fastest',
-            'nz-fastest',
-            'zip-fastest',
-            'zpaq-fastest'
-        )
-    },
-    'max': {
-        'tar': (
-            'brotli-max',
-            'bzip3-compress',
-            'fxz-max',
-            'lizard-max',
-            'lrzip-next-lzma-max',
-            'lrzip-next-zpaq-max',
-            'lz4-max',
-            'lzop-max',
-            'pbzip2-max',
-            'pigz-max',
-            'plzip-max',
-            'rzip64-max',
-            'zstdmt-max'
-        ),
-        'no tar': (
-            '7zz-max',
-            'nz-max',
-            'zip-max',
-            'zpaq-max'
-        )
-    },
-    'extensions': {
-        '7zz': '7z',
-        'brotli': 'br',
-        'bzip3': 'bz3',
-        'fxz': 'xz',
-        'lizard': 'liz',
-        'lrzip-next': 'lrz',
-        'lz4': 'lz4',
-        'lzop': 'lzo',
-        'nz': 'nz',
-        'pbzip2': 'bz2',
-        'pigz': 'gz',
-        'plzip': 'lz',
-        'rzip64': 'rz',
-        'zip': 'zip',
-        'zpaq': 'zpaq',
-        'zstdmt': 'zst'
-    }
-}
 
-valid_levels = ('fast', 'max')
+def getFileSize(src):
+    return Path(src).stat().st_size
 
 
-def selectMethods(methods: tuple, prompt: str) -> list:
-    selected = []
+def getPathSize(src):
+    src = Path(src)
 
-    print(prompt)
+    size = None
 
-    for i, method in enumerate(methods):
-        print(i, method)
+    if src.is_file():
+        size = getFileSize(src)
 
-    print(len(methods), 'all')
+    elif src.is_dir():
+        size = sum(getFileSize(x) for x in Path(src).rglob('*'))
 
-    selected_methods = input().split(',')
-
-    to_replace = []
-
-    for i, method in enumerate(selected_methods):
-        if '*' in method:
-            method = method.split('*')
-
-            new = []
-
-            for x in range(int(method[0]), int(method[1]) + 1):
-                new.append(x)
-
-            to_replace.append((i, new))
-
-    if to_replace:
-        selected_tmp = selected_methods[:]
-
-        for r in to_replace:
-            del selected_tmp[r[0]]
-
-        selected_tmp.extend(r[1])
-        selected_methods = selected_tmp
-
-    # Remove empty str's and convert str's to actual numbers
-    selected_methods = [int(x) for x in selected_methods if x]
-
-    if len(selected_methods) <= len(methods) and len(selected_methods) != 0:
-        if len(methods) in selected_methods:
-            # User asked to use 'all' values
-            selected.extend(methods)
-        else:
-            selected.extend([methods[s] for s in selected_methods])
     else:
-        print(f'Selected: {selected_methods}')
-        raise Exception('Nothing was selected!')
+        print('we got here')
 
-    return selected
-
-
-def methodsToUse(level: str) -> tuple:
-    if level not in valid_levels:
-        raise Exception
-
-    archivers = programs[level]['no tar']
-    compressors = programs[level]['tar']
-
-    to_use = []
-
-    prompt_suffix = 'separated by commas and or numbers with * in between.'
-
-    archiver_prompt = 'Select which archiver(s) ' + prompt_suffix
-    compressor_prompt = 'Select which compressor(s) ' + prompt_suffix
-
-    print('Example: 0,1,2,3 or 2*5 or 0,1,2*7')
-
-    selected_archivers = selectMethods(archivers, archiver_prompt)
-    to_use.extend(selected_archivers)
-
-    selected_compressors = selectMethods(compressors, compressor_prompt)
-    to_use.extend(selected_compressors)
-
-    return tuple(to_use)
+    return size
 
 
-def runCMD(args: tuple) -> tuple:
-    start = timeit.default_timer()
-    cmd = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    end = timeit.default_timer() - start
-    return (float(f'{end:.6f}'), cmd.returncode)
+def runCommand(args):
+    print(f'Running command: {args}')
 
+    start = time.perf_counter()
 
-def makeTar(path: str) -> None:
-    cmd = (
-        'tar',
-        'cf',
-        f'{path}.tar',
-        path
+    subprocess.run(
+        args,
+        stderr=subprocess.STDOUT,
+        stdout=subprocess.DEVNULL
     )
-    runCMD(cmd)
 
-
-def getFileSize(path: str) -> int:
-    return Path(path).stat().st_size
-
-
-def renameFile(path: str, new: str) -> None:
-    shutil.move(path, new)
-
-
-def handlePath(path: str) -> Path:
-    path = Path(path)
-    path_parent = path.parent.resolve()
-
-    cwd = Path().resolve()
-
-    if cwd != path_parent:
-        # path is NOT inside current directory
-        os.chdir(path_parent)
-        cwd_test = Path().resolve()
-
-        if cwd_test != path_parent:
-            raise Exception('Failed to change directory!')
-
-    elif cwd == path_parent:
-        # path IS inside the directory where already in
-        pass
-    else:
-        raise Exception('We got here')
-
-    return path
-
-
-def compress(path: str, name: str, args: str) -> None:
-    # Use this function if you want to compress a directory
-    # if you only want to use one method, but with supplied
-    # arguments. This will return the time and filesize.
-
-    # -a=arguments OR if spaces exist, args must be in ""
-
-    args = args.split(' ')
-
-    # Allow usage of {i} to enable the user to replace {i} with the
-    # supplied input.
-
-    new_args = args[:]
-
-    for i, arg in enumerate(args):
-        if '{i}' in arg:
-            new_args[i] = arg.replace('{i}', path)
-
-    archivers = programs['fast']['no tar']
-    compressors = programs['fast']['tar']
-
-    available = {'archivers': [], 'compressors': []}
-
-    for archiver in archivers:
-        new_name = archiver.split('-')
-
-        if len(new_name) == 2:
-            if new_name[0] not in available['archivers']:
-                available['archivers'].append(new_name[0])
-        else:
-            print('Archiver name len > 2!')
-
-    for compressor in compressors:
-        new_name = compressor.split('-')
-
-        if len(new_name) == 2:
-            if new_name[0] not in available['compressors']:
-                available['compressors'].append(new_name[0])
-
-        elif len(new_name) == 4:
-            if new_name[0] == 'lrzip' and new_name[1] == 'next':
-                lrzn = 'lrzip-next'
-
-                if lrzn not in available['compressors']:
-                    available['compressors'].append(lrzn)
-
-        else:
-            print('Compressor name len != 2 or 4!')
-
-    is_tar = False
-
-    if name in available['archivers']:
-        cmd = (name, *new_args)
-
-    elif name in available['compressors']:
-        print(f'{name} requires tar. Creating tar now!')
-
-        is_tar = True
-
-        makeTar(path)
-
-        cmd = (name, *new_args)
-
-    else:
-        raise Exception(f'{name} is not a supported method!')
-
-    extension = programs['extensions'][name]
-
-    print(f'Running command: {cmd}')
-
-    time, returncode = runCMD(cmd)
-
-    if returncode != 0:
-        raise Exception(f'{name} failed!')
-
-    if is_tar is True:
-        filename = f'{path}.tar.{extension}'
-    elif is_tar is False:
-        filename = f'{path}.{extension}'
-    else:
-        raise ValueError(f'is_tar is not a bool!')
-
-    # FIXME
-    # This will not work if the user makes the output file
-    # not adhere to '"input"."extension"'. Need to fix this.
-    # I could do some checking in (new_)args to see if some
-    # of the name is in there. If it is, I can adapt the
-    # check to change the filename variable.
-
-    filesize = getFileSize(filename)
-
-    print(filename)
-
-    printResultFormatted(name, time, filesize)
-
-
-def compressAll(path: str, level: str, methods: tuple = None) -> dict:
-    if level not in valid_levels:
-        raise Exception
-
-    path_name = handlePath(path).name
-
-    # To enable using selected vs pre-selected, lazily use a list comprehension
-
-    methods_tar = [t for t in programs[level]['tar']]
-    methods_archiver = [n for n in programs[level]['no tar']]
-
-    # FIXME
-    # Enable user to not select any archivers or compressors
-
-    # This means either 1 or more archivers and no compressors
-    # or
-    # 1 or more compressors and no archivers
-
-    if methods:
-        # User selected which methods to use.
-        methods_tar = [t for t in methods if t in methods_tar]
-        methods_archiver = [t for t in methods if t in methods_archiver]
-
-    results = {}
-
-    for archiver in methods_archiver:
-        cmd = (archiver, path_name)
-
-        archiver_name = archiver.split('-')[0]
-        extension = programs['extensions'][archiver_name]
-        full_name = f'{path}.{extension}'
-
-        print(f'Compressing with archiver: {archiver}')
-
-        duration, returncode = runCMD(cmd)
-
-        size = getFileSize(full_name)
-
-        results[archiver_name] = {
-            'time': duration,
-            'size': size,
-            'returncode': returncode
-        }
-
-    tar_path = f'{path_name}.tar'
-    makeTar(path_name)
-
-    # Supressing stdout with subprocess.run makes
-    # lizard not work.
-    # FIXME
-
-    for compressor in methods_tar:
-        cmd = (compressor, tar_path)
-
-        compressor_name = compressor.split('-')
-
-        if len(compressor_name) == 2:
-            compressor_name = compressor_name[0]
-        else:
-            compressor_name = '-'.join(compressor_name[:2])
-
-        extension = programs['extensions'][compressor_name]
-        full_name = f'{tar_path}.{extension}'
-
-        print(f'Compressing with compressor: {compressor}')
-
-        duration, returncode = runCMD(cmd)
-
-        # FIXME
-        # lrzip-next-lzma works but lrzip-next-zpaq fails to write the file -___-
-
-        if compressor_name == 'lrzip-next':
-            try:
-                lrz_method = compressor.split('-')[2]
-                new_name = full_name.replace('.lrz', f'.{lrz_method}.lrz')
-                renameFile(full_name, new_name)
-                size = getFileSize(new_name)
-
-                # This is probably not a good way to do this
-                compressor_name = f'{compressor_name}-{lrz_method}'
-            except FileNotFoundError:
-                continue
-        else:
-            size = getFileSize(full_name)
-
-        results[compressor_name] = {
-            'time': duration,
-            'size': size,
-            'returncode': returncode
-        }
-
-    Path(tar_path).unlink()
-
-    # Clear the screen without using system()
-    print('\x1b[2J\x1b[H', end='')
-
-    return results
-
-
-def formatTime(time: float) -> str:
-    return f'{time:.6f} seconds / {int(time * 1000)} ms'
-
-
-def formatSize(size: int) -> str:
-    return f'{size / (1024 * 1024):.2f} MB'
-
-
-def printResultFormatted(method: str, time: float = None, size: int = None) -> None:
-    if time and not size:
-        print(f'{method} {formatTime(time)}')
-    elif size and not time:
-        print(f'{method} {formatSize(size)}')
-    elif time and size:
-        print(f'{method} {formatTime(time)} {formatSize(size)}')
-    else:
-        raise Exception('No time or size was passed!')
-
-
-def findBestMethod(results: dict) -> None:
-    durations = []
-    sizes = []
-
-    for method in results:
-        if results[method]['returncode'] != 0:
-            continue
-
-        durations.append(results[method]['time'])
-        sizes.append(results[method]['size'])
-
-    mean_time = sum(durations) / len(durations)
-    mean_size = sum(sizes) // len(sizes)
-
-    print(f'Mean time: {formatTime(mean_time)}')
-    print(f'Mean size: {formatSize(mean_size)}')
-
-    print()
-
-    average_methods = {}
-
-    for method in results:
-        method_time = results[method]['time']
-        method_size = results[method]['size']
-
-        if method_time <= mean_time and method_size <= mean_size:
-            if method not in average_methods:
-                average_methods[method] = results[method]
-
-    print()
-
-    print('Methods <= average:')
-
-    for method in average_methods:
-        method_time = average_methods[method]['time']
-        method_size = average_methods[method]['size']
-
-        printResultFormatted(method, method_time, method_size)
-
-    sizes_sorted = sorted(sizes)
-
-    print()
-
-    print('Methods with sizes sorted:')
-
-    for size in sizes_sorted:
-        for method in results:
-            if size == results[method]['size']:
-                printResultFormatted(method, size=size)
-
-    durations_sorted = sorted(durations)
-
-    print()
-
-    print('Methods with durations sorted:')
-
-    for duration in durations_sorted:
-        for method in results:
-            if duration == results[method]['time']:
-                printResultFormatted(method, time=duration)
-
-
-# FIXME
-# Doesn't remove files with the same name
-
-
-def clean(name: str) -> None:
-    for match in Path().glob('*'):
-        if match.is_file():
-            if name in match.name:
-                print(f'Removing: {match.name}')
-                match.unlink()
-
-
-def main() -> None:
+    end = time.perf_counter() - start
+    return end
+
+
+def do7zip(src, dst, *args):
+    cmd = (
+        '7zz',
+        'a',
+        *args,
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doNanoZip(src, dst, *args):
+    cmd = (
+        'nz',
+        'a',
+        *args,
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doZip(src, dst, *args):
+    cmd = (
+        'zip',
+        *args,
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doZpaq(src, dst, *args):
+    cmd = (
+        'zpaq',
+        'a',
+        dst,
+        src,
+        *args
+    )
+    return runCommand(cmd)
+
+
+def doBrotli(src, dst, *args):
+    cmd = (
+        'brotli',
+        *args,
+        '-o',
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doBzip3(src, dst, *args):
+    cmd = (
+        'bzip3',
+        *args,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doCmix(src, dst, *args):
+    cmd = (
+        'cmix',
+        *args,
+        src,
+        dst
+    )
+    return runCommand(cmd)
+
+
+def doFxz(src, dst, *args):
+    cmd = (
+        'fxz',
+        *args,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doLizard(src, dst, *args):
+    cmd = (
+        'lizard',
+        *args,
+        src,
+        dst
+    )
+    return runCommand(cmd)
+
+
+def doLrzipNext(src, dst, *args):
+    cmd = (
+        'lrzip-next',
+        *args,
+        '-o',
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doLZ4(src, dst, *args):
+    cmd = (
+        'lz4',
+        *args,
+        src,
+        dst
+    )
+    return runCommand(cmd)
+
+
+def doLzop(src, dst, *args):
+    cmd = (
+        'lzop',
+        *args,
+        '-o',
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doPBzip2(src, dst, *args):
+    cmd = (
+        'pbzip2',
+        *args,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doPigz(src, dst, *args):
+    cmd = (
+        'pigz',
+        *args,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doPLzip(src, dst, *args):
+    cmd = (
+        'plzip',
+        *args,
+        '-o',
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doRzip64(src, dst, *args):
+    cmd = (
+        'rzip64',
+        *args,
+        '-o',
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def doZstd(src, dst, *args):
+    cmd = (
+        'zstd',
+        *args,
+        '-o',
+        dst,
+        src
+    )
+    return runCommand(cmd)
+
+
+def go(func, src, dst, *args):
+    in_size = getPathSize(src)
+    in_size_str = f'{round(in_size / (1024*1024), 2)} MB'
+
+    duration = round(func(src, dst, *args), 4)
+    duration_str = f'{duration} sec(s)'
+
+    out_size = getPathSize(dst)
+    out_size_str = f'{round(out_size / (1024*1024), 2)} MB'
+
+    speed = (out_size / duration) / (1024*1024)
+    speed_str = f'{round(speed, 2)} MB/s'
+
+    compression = ((out_size / in_size) * 100) - 100
+    compression_str = f'{round(compression, 2)}%'
+
+    print(
+        func.__name__,
+        duration_str,
+        compression_str,
+        in_size_str,
+        out_size_str,
+        speed_str
+    )
+
+
+def main():
     parser = ArgumentParser()
 
-    parser.add_argument('-i', nargs=1, type=str, required=True)
-
-    parser.add_argument('-n', nargs=1, type=str)
-
-    parser.add_argument('-a', nargs='?', type=str)
-
-    parser.add_argument('--fast', action='store_true')
-    parser.add_argument('--max', action='store_true')
-    parser.add_argument('--clean', action='store_true')
-    parser.add_argument('--select', action='store_true')
+    parser.add_argument('-i', nargs=1)
 
     args = parser.parse_args()
 
-    if args.fast:
-        if args.select:
-            methods = methodsToUse('fast')
-            results = compressAll(args.i[0], 'fast', methods)
-        else:
-            results = compressAll(args.i[0], 'fast')
-
-        findBestMethod(results)
-
-    elif args.max:
-        if args.select:
-            methods = methodsToUse('max')
-            results = compressAll(args.i[0], 'max', methods)
-        else:
-            results = compressAll(args.i[0], 'max')
-
-        findBestMethod(results)
-
-    elif args.n and args.a:
-        compress(args.i[0], args.n[0], args.a)
-
-    elif args.clean:
-        clean(args.i[0])
-
+    if args.i:
+        go(doZstd, args.i[0], f'{args.i[0]}.zst', '-k0')
     else:
         parser.print_help()
 
 
 if __name__ == '__main__':
     main()
+

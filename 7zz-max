@@ -1,3 +1,0 @@
-#!/bin/sh
-
-7zz a -m0=flzma2 -mx9 "$1.7z" "$1"

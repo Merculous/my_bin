@@ -1,3 +1,0 @@
-#!/bin/sh
-
-rzip64 -kvd "$1"

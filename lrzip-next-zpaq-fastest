@@ -1,3 +1,0 @@
-#!/bin/sh
-
-lrzip-next -T -z -L1 -vv "$@"

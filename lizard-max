@@ -1,3 +1,0 @@
-#!/bin/sh
-
-lizard -k49 "$1" "$1.liz"

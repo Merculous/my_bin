@@ -1,3 +1,0 @@
-#!/bin/sh
-
-bzip3 -ekv -j 24 "$1"
