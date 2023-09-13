@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import subprocess
+import sys
 import time
 import tempfile
-from argparse import ArgumentParser
+from argparse import ArgumentParser, REMAINDER
 from pathlib import Path
 
 def bytesToMB(n):
@@ -247,15 +248,58 @@ def go(func, src, dst, *args):
     )
 
 
+def getPrograms():
+    functions = []
+
+    for name, obj in globals().items():
+        if name.startswith('do'):
+            functions.append((name, obj))
+
+    return tuple(functions)
+
+
 def main():
     parser = ArgumentParser()
 
-    parser.add_argument('-i', nargs=1)
+    parser.add_argument('-i', nargs=1, metavar='input')
+    parser.add_argument('-o', nargs=1, metavar='output')
 
-    args = parser.parse_args()
+    parser.add_argument('-a', nargs=REMAINDER, metavar='args')
 
-    if args.i:
-        go(doZstd, args.i[0], f'{args.i[0]}.zst', '-k0')
+    for program, function in getPrograms():
+        parser.add_argument(f'-{program}', action='store_true')
+
+    args = vars(parser.parse_args())
+
+    if args['i'] and args['o']:
+        selected = None
+
+        for program in args:
+            if program.startswith('do'):
+                if args[program]:
+                    selected = program
+                    break
+
+        if not selected:
+            parser.print_help()
+
+        else:
+            func = None
+
+            for program, function in getPrograms():
+                if function.__name__ == selected:
+                    func = function
+                    break
+
+            if not func:
+                raise Exception('Could not find function!')
+
+            if not args['a']:
+                go(func, args['i'][0], args['o'][0])
+
+            else:
+                go(func, args['i'][0], args['o'][0], *args['a'])
+
     else:
         parser.print_help()
 
