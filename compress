@@ -232,7 +232,7 @@ def go(func, src, dst, *args):
     out_size = getPathSize(dst)
     out_size_str = f'{round(bytesToMB(out_size), 2)} MB'
 
-    speed = (out_size / duration) / (1024*1024)
+    speed = (in_size / duration) / (1024*1024)
     speed_str = f'{round(speed, 2)} MB/s'
 
     compression = ((out_size / in_size) * 100) - 100
