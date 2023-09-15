@@ -5,6 +5,8 @@ import time
 from argparse import ArgumentParser, REMAINDER
 from pathlib import Path
 
+verbose = False
+
 KB = 2 << 9
 MB = 2 << 19
 GB = 2 << 29
@@ -30,6 +32,8 @@ def determineNumberSuffix(n):
 
 def formatNumber(n):
     suffix = determineNumberSuffix(n)
+
+    number = None
 
     if suffix == 'KB':
         number = n / KB
@@ -76,15 +80,18 @@ def getPathSize(src):
 
 
 def runCommand(args):
-    print(f'Running command: {args}')
-
     start = time.perf_counter()
 
-    subprocess.run(
-        args,
-        stderr=subprocess.STDOUT,
-        stdout=subprocess.DEVNULL
-    )
+    if verbose:
+        subprocess.run(args)
+    else:
+        print(f'Running command: {args}')
+
+        subprocess.run(
+            args,
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.DEVNULL
+        )
 
     end = time.perf_counter() - start
     return end
@@ -307,6 +314,8 @@ def main():
     parser.add_argument('-i', nargs=1, metavar='input')
     parser.add_argument('-o', nargs=1, metavar='output')
 
+    parser.add_argument('-v', action='store_true')
+
     parser.add_argument('-a', nargs=REMAINDER, metavar='args')
 
     for program, function in getPrograms():
@@ -336,6 +345,10 @@ def main():
 
             if not func:
                 raise Exception('Could not find function!')
+
+            if args['v']:
+                global verbose
+                verbose = True
 
             if not args['a']:
                 go(func, args['i'][0], args['o'][0])
