@@ -1,14 +1,57 @@
 #!/usr/bin/env python3
 
 import subprocess
-import sys
 import time
-import tempfile
 from argparse import ArgumentParser, REMAINDER
 from pathlib import Path
 
-def bytesToMB(n):
-    return n / (1024*1024)
+KB = 2 << 9
+MB = 2 << 19
+GB = 2 << 29
+
+
+def determineNumberSuffix(n):
+    suffix = None
+
+    if n >= KB and n < MB:
+        suffix = 'KB'
+
+    elif n >= MB and n < GB:
+        suffix = 'MB'
+
+    elif n >= GB:
+        suffix = 'GB'
+
+    else:
+        pass
+
+    return suffix
+
+
+def formatNumber(n):
+    suffix = determineNumberSuffix(n)
+
+    if suffix == 'KB':
+        number = n / KB
+
+    elif suffix == 'MB':
+        number = n / MB
+
+    elif suffix == 'GB':
+        number = n / GB
+
+    else:
+        pass
+
+    return f'{round(number, 2)} {suffix}'
+
+
+def getSpeed(size, duration):
+    return size / duration
+
+
+def getCompression(new, old):
+    return ((new / old) * 100) - 100
 
 
 def getFileSize(src):
@@ -27,7 +70,7 @@ def getPathSize(src):
         size = sum(getFileSize(x) for x in Path(src).rglob('*'))
 
     else:
-        print('we got here')
+        pass
 
     return size
 
@@ -224,18 +267,18 @@ def doZstd(src, dst, *args):
 
 def go(func, src, dst, *args):
     in_size = getPathSize(src)
-    in_size_str = f'{round(bytesToMB(in_size), 2)} MB'
+    in_size_str = formatNumber(in_size)
 
     duration = round(func(src, dst, *args), 4)
     duration_str = f'{duration} sec(s)'
 
     out_size = getPathSize(dst)
-    out_size_str = f'{round(bytesToMB(out_size), 2)} MB'
+    out_size_str = formatNumber(out_size)
 
-    speed = (in_size / duration) / (1024*1024)
-    speed_str = f'{round(speed, 2)} MB/s'
+    speed = getSpeed(in_size, duration)
+    speed_str = f'{formatNumber(speed)}/s'
 
-    compression = ((out_size / in_size) * 100) - 100
+    compression = getCompression(out_size, in_size)
     compression_str = f'{round(compression, 2)}%'
 
     print(
@@ -306,4 +349,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
