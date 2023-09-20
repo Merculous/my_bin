@@ -270,12 +270,18 @@ def doZstd(src, dst, *args):
     return runCommand(cmd)
 
 
-def determineQuality(speed, compression):
+def determineScore(speed, compression):
     speed = float(speed.split()[0])
 
     compression = float(compression[:-1])
 
-    return round((speed + compression) / 2, 2)
+    threshold = 1024
+
+    percentage = max(((speed + compression) / threshold) * 100, -100)
+
+    score = min(percentage, 100)
+
+    return round(score, 4)
 
 
 def go(func, src, dst, toFile, *args):
@@ -294,7 +300,7 @@ def go(func, src, dst, toFile, *args):
     compression = getCompression(out_size, in_size)
     compression_str = f'{round(compression, 2)}%'
 
-    quality = determineQuality(speed_str, compression_str)
+    score = determineScore(speed_str, compression_str)
 
     # For now, low quality is bad and high is good
 
@@ -306,7 +312,7 @@ def go(func, src, dst, toFile, *args):
         in_size_str,
         out_size_str,
         speed_str,
-        str(quality)
+        str(score)
     )
 
     output = ' '.join(output) + '\n'
