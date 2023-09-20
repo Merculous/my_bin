@@ -85,8 +85,6 @@ def runCommand(args):
     if verbose:
         subprocess.run(args)
     else:
-        print(f'Running command: {args}')
-
         subprocess.run(
             args,
             stderr=subprocess.STDOUT,
@@ -272,7 +270,15 @@ def doZstd(src, dst, *args):
     return runCommand(cmd)
 
 
-def go(func, src, dst, *args):
+def determineQuality(speed, compression):
+    speed = float(speed.split()[0])
+
+    compression = float(compression[:-1])
+
+    return round((speed + compression) / 2, 2)
+
+
+def go(func, src, dst, toFile, *args):
     in_size = getPathSize(src)
     in_size_str = formatNumber(in_size)
 
@@ -288,14 +294,26 @@ def go(func, src, dst, *args):
     compression = getCompression(out_size, in_size)
     compression_str = f'{round(compression, 2)}%'
 
-    print(
+    quality = determineQuality(speed_str, compression_str)
+
+    # For now, low quality is bad and high is good
+
+    output = (
         func.__name__,
+        *args,
         duration_str,
         compression_str,
         in_size_str,
         out_size_str,
-        speed_str
+        speed_str,
+        str(quality)
     )
+
+    if toFile:
+        with open(toFile, 'a') as f:
+            f.write(' '.join(output))
+    else:
+        print(*output)
 
 
 def getPrograms():
@@ -313,6 +331,7 @@ def main():
 
     parser.add_argument('-i', nargs=1, metavar='input')
     parser.add_argument('-o', nargs=1, metavar='output')
+    parser.add_argument('-f', nargs=1, metavar='results')
 
     parser.add_argument('-v', action='store_true')
 
@@ -351,10 +370,16 @@ def main():
                 verbose = True
 
             if not args['a']:
-                go(func, args['i'][0], args['o'][0])
+                if args['f']:
+                    go(func, args['i'][0], args['o'][0], args['f'][0])
+                else:
+                    go(func, args['i'][0], args['o'][0], False)
 
             else:
-                go(func, args['i'][0], args['o'][0], *args['a'])
+                if args['f']:
+                    go(func, args['i'][0], args['o'][0], args['f'][0], *args['a'])
+                else:
+                    go(func, args['i'][0], args['o'][0], False, *args['a'])
 
     else:
         parser.print_help()
