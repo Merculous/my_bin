@@ -309,11 +309,13 @@ def go(func, src, dst, toFile, *args):
         str(quality)
     )
 
+    output = ' '.join(output) + '\n'
+
     if toFile:
         with open(toFile, 'a') as f:
-            f.write(' '.join(output))
+            f.write(output)
     else:
-        print(*output)
+        print(output)
 
 
 def getPrograms():
