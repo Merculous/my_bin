@@ -140,7 +140,7 @@ def outputResults(info):
     print(f'Score: {info["score"]}')
 
 
-def go(args):
+def go(in_path, out_path, args):
     info = {
         'src': None,
         'dst': None,
@@ -151,11 +151,11 @@ def go(args):
         'speed': None
     }
 
-    info['src'] = [args.i[0], getPathSize(args.i[0])]
+    info['src'] = [in_path, getPathSize(in_path)]
 
-    info['dst'] = [args.o[0]]
+    info['dst'] = [out_path]
 
-    info['cmd'] = formCommand(args.args, info['src'][0], info['dst'][0])
+    info['cmd'] = formCommand(args, info['src'][0], info['dst'][0])
 
     info['duration'] = runCommand(info['cmd'])
 
@@ -173,13 +173,17 @@ def go(args):
 def main():
     parser = ArgumentParser()
 
-    parser.add_argument('-i', nargs=1, metavar='file')
-    parser.add_argument('-o', nargs=1)
+    parser.add_argument('-i', nargs=1, metavar='input')
+    parser.add_argument('-o', nargs=1, metavar='output')
     parser.add_argument('-args', nargs=REMAINDER)
 
     args = parser.parse_args()
 
-    go(args)
+    if args.i and args.o and args.args:
+        go(args.i[0], args.o[0], args.args)
+
+    else:
+        parser.print_help()
 
 
 if __name__ == '__main__':
