@@ -1,6 +1,5 @@
-# NOTES
 
-Some reason only lzop and pigz don't work when piping to pv (they write to /dev/null no problem)
+## Compression utilities I use with `compress` ##
 
 # 7zz
 
@@ -57,7 +56,3 @@ https://mattmahoney.net/dc/zpaq.html
 # zstd
 
 https://github.com/facebook/zstd
-
-# pv
-
-https://www.ivarch.com/programs/pv.shtml
