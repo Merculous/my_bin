@@ -5,8 +5,6 @@ import time
 from argparse import ArgumentParser, REMAINDER
 from pathlib import Path
 
-verbose = False
-
 KB = 2 << 9
 MB = 2 << 19
 GB = 2 << 29
@@ -23,9 +21,6 @@ def determineNumberSuffix(n):
 
     elif n >= GB:
         suffix = 'GB'
-
-    else:
-        pass
 
     return suffix
 
@@ -44,9 +39,6 @@ def formatNumber(n):
     elif suffix == 'GB':
         number = n / GB
 
-    else:
-        pass
-
     return f'{round(number, 2)} {suffix}'
 
 
@@ -54,8 +46,19 @@ def getSpeed(size, duration):
     return size / duration
 
 
+def getPercentage(new, old):
+    return new / old
+
+
+def determineScore(speed, compression):
+    threshold = 1024
+    speed = float(formatNumber(speed).split()[0])
+    score = (speed / threshold) * compression
+    return round(score, 4)
+
+
 def getCompression(new, old):
-    return ((new / old) * 100) - 100
+    return round(getPercentage(new, old) * 100, 2)
 
 
 def getFileSize(src):
@@ -73,324 +76,110 @@ def getPathSize(src):
     elif src.is_dir():
         size = sum(getFileSize(x) for x in Path(src).rglob('*'))
 
-    else:
-        pass
-
     return size
 
 
 def runCommand(args):
     start = time.perf_counter()
-
-    if verbose:
-        subprocess.run(args)
-    else:
-        subprocess.run(
-            args,
-            stderr=subprocess.STDOUT,
-            stdout=subprocess.DEVNULL
-        )
-
+    subprocess.run(args)
     end = time.perf_counter() - start
     return end
 
 
-def do7zip(src, dst, *args):
-    cmd = (
-        '7zz',
-        'a',
-        *args,
-        dst,
-        src
-    )
-    return runCommand(cmd)
+def compress(cmd, in_path, out_path):
+    pass
 
 
-def doNanoZip(src, dst, *args):
-    cmd = (
-        'nz',
-        'a',
-        *args,
-        dst,
-        src
-    )
-    return runCommand(cmd)
+def extract(cmd, in_path, out_path):
+    pass
 
 
-def doZip(src, dst, *args):
-    cmd = (
-        'zip',
-        *args,
-        dst,
-        src
-    )
-    return runCommand(cmd)
+def formCommand(cmd, in_path, out_path):
+    program = cmd[0]
 
+    if program in ('7z', 'nz', 'zip', 'zpaq'):
+        if program == 'zpaq':
+            cmd[2:2] = [out_path, in_path]
 
-def doZpaq(src, dst, *args):
-    cmd = (
-        'zpaq',
-        'a',
-        dst,
-        src,
-        *args
-    )
-    return runCommand(cmd)
+        else:
+            cmd.extend((out_path, in_path))
 
-
-def doBrotli(src, dst, *args):
-    cmd = (
-        'brotli',
-        *args,
-        '-o',
-        dst,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doBzip3(src, dst, *args):
-    cmd = (
-        'bzip3',
-        *args,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doCmix(src, dst, *args):
-    cmd = (
-        'cmix',
-        *args,
-        src,
-        dst
-    )
-    return runCommand(cmd)
-
-
-def doFxz(src, dst, *args):
-    cmd = (
-        'fxz',
-        *args,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doLizard(src, dst, *args):
-    cmd = (
-        'lizard',
-        *args,
-        src,
-        dst
-    )
-    return runCommand(cmd)
-
-
-def doLrzipNext(src, dst, *args):
-    cmd = (
-        'lrzip-next',
-        *args,
-        '-o',
-        dst,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doLZ4(src, dst, *args):
-    cmd = (
-        'lz4',
-        *args,
-        src,
-        dst
-    )
-    return runCommand(cmd)
-
-
-def doLzop(src, dst, *args):
-    cmd = (
-        'lzop',
-        *args,
-        '-o',
-        dst,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doPBzip2(src, dst, *args):
-    cmd = (
-        'pbzip2',
-        *args,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doPigz(src, dst, *args):
-    cmd = (
-        'pigz',
-        *args,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doPLzip(src, dst, *args):
-    cmd = (
-        'plzip',
-        *args,
-        '-o',
-        dst,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doRzip64(src, dst, *args):
-    cmd = (
-        'rzip64',
-        *args,
-        '-o',
-        dst,
-        src
-    )
-    return runCommand(cmd)
-
-
-def doZstd(src, dst, *args):
-    cmd = (
-        'zstd',
-        *args,
-        '-o',
-        dst,
-        src
-    )
-    return runCommand(cmd)
-
-
-def determineScore(speed, compression):
-    speed = float(speed.split()[0])
-
-    compression = float(compression[:-1])
-
-    threshold = 1024
-
-    percentage = max(((speed + compression) / threshold) * 100, -100)
-
-    score = min(percentage, 100)
-
-    return round(score, 4)
-
-
-def go(func, src, dst, toFile, *args):
-    in_size = getPathSize(src)
-    in_size_str = formatNumber(in_size)
-
-    duration = round(func(src, dst, *args), 4)
-    duration_str = f'{duration} sec(s)'
-
-    out_size = getPathSize(dst)
-    out_size_str = formatNumber(out_size)
-
-    speed = getSpeed(in_size, duration)
-    speed_str = f'{formatNumber(speed)}/s'
-
-    compression = getCompression(out_size, in_size)
-    compression_str = f'{round(compression, 2)}%'
-
-    score = determineScore(speed_str, compression_str)
-
-    # For now, low quality is bad and high is good
-
-    output = (
-        func.__name__,
-        *args,
-        duration_str,
-        compression_str,
-        in_size_str,
-        out_size_str,
-        speed_str,
-        str(score)
-    )
-
-    output = ' '.join(output) + '\n'
-
-    if toFile:
-        with open(toFile, 'a') as f:
-            f.write(output)
     else:
-        print(output)
+        cmd.append(in_path)
+
+    return cmd
 
 
-def getPrograms():
-    functions = []
+def formatResults(results):
+    results['src'] = formatNumber(results['src'][1])
 
-    for name, obj in globals().items():
-        if name.startswith('do'):
-            functions.append((name, obj))
+    results['dst'] = formatNumber(results['dst'][1])
 
-    return tuple(functions)
+    results['cmd'] = ' '.join(results['cmd'])
+
+    results['compression'] = f'{results["compression"]}%'
+
+    results['duration'] = f'{round(results["duration"], 2)} sec(s)'
+
+    results['score'] = str(results['score'])
+
+    results['speed'] = formatNumber(results['speed'])
+
+    return results
+
+
+def outputResults(info):
+    info = formatResults(info)
+
+    print(f'Command: {info["cmd"]}')
+    print(f'Input: {info["src"]}')
+    print(f'Output: {info["dst"]}')
+    print(f'Compression: {info["compression"]}')
+    print(f'Duration: {info["duration"]}')
+    print(f'Speed: {info["speed"]}/s')
+    print(f'Score: {info["score"]}')
+
+
+def go(args):
+    info = {
+        'src': None,
+        'dst': None,
+        'cmd': None,
+        'compression': None,
+        'duration': None,
+        'score': None,
+        'speed': None
+    }
+
+    info['src'] = [args.i[0], getPathSize(args.i[0])]
+
+    info['dst'] = [args.o[0]]
+
+    info['cmd'] = formCommand(args.args, info['src'][0], info['dst'][0])
+
+    info['duration'] = runCommand(info['cmd'])
+
+    info['dst'].append(getPathSize(info['dst'][0]))
+
+    info['compression'] = getCompression(info['dst'][1], info['src'][1])
+
+    info['speed'] = getSpeed(info['src'][1], info['duration'])
+
+    info['score'] = determineScore(info['speed'], info['compression'])
+
+    outputResults(info)
 
 
 def main():
     parser = ArgumentParser()
 
-    parser.add_argument('-i', nargs=1, metavar='input')
-    parser.add_argument('-o', nargs=1, metavar='output')
-    parser.add_argument('-f', nargs=1, metavar='results')
+    parser.add_argument('-i', nargs=1, metavar='file')
+    parser.add_argument('-o', nargs=1)
+    parser.add_argument('-args', nargs=REMAINDER)
 
-    parser.add_argument('-v', action='store_true')
+    args = parser.parse_args()
 
-    parser.add_argument('-a', nargs=REMAINDER, metavar='args')
-
-    for program, function in getPrograms():
-        parser.add_argument(f'-{program}', action='store_true')
-
-    args = vars(parser.parse_args())
-
-    if args['i'] and args['o']:
-        selected = None
-
-        for program in args:
-            if program.startswith('do'):
-                if args[program]:
-                    selected = program
-                    break
-
-        if not selected:
-            parser.print_help()
-
-        else:
-            func = None
-
-            for program, function in getPrograms():
-                if function.__name__ == selected:
-                    func = function
-                    break
-
-            if not func:
-                raise Exception('Could not find function!')
-
-            if args['v']:
-                global verbose
-                verbose = True
-
-            if not args['a']:
-                if args['f']:
-                    go(func, args['i'][0], args['o'][0], args['f'][0])
-                else:
-                    go(func, args['i'][0], args['o'][0], False)
-
-            else:
-                if args['f']:
-                    go(func, args['i'][0], args['o'][0], args['f'][0], *args['a'])
-                else:
-                    go(func, args['i'][0], args['o'][0], False, *args['a'])
-
-    else:
-        parser.print_help()
+    go(args)
 
 
 if __name__ == '__main__':
