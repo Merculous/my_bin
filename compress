@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import subprocess
+import sys
 import time
 from argparse import ArgumentParser, REMAINDER
 from pathlib import Path
@@ -131,13 +132,13 @@ def formatResults(results):
 def outputResults(info):
     info = formatResults(info)
 
-    print(f'Command: {info["cmd"]}')
-    print(f'Input: {info["src"]}')
-    print(f'Output: {info["dst"]}')
-    print(f'Compression: {info["compression"]}')
-    print(f'Duration: {info["duration"]}')
-    print(f'Speed: {info["speed"]}/s')
-    print(f'Score: {info["score"]}')
+    sys.stderr.write(f'Command: {info["cmd"]}\n')
+    sys.stderr.write(f'Input: {info["src"]}\n')
+    sys.stderr.write(f'Output: {info["dst"]}\n')
+    sys.stderr.write(f'Compression: {info["compression"]}\n')
+    sys.stderr.write(f'Duration: {info["duration"]}\n')
+    sys.stderr.write(f'Speed: {info["speed"]}/s\n')
+    sys.stderr.write(f'Score: {info["score"]}\n')
 
 
 def go(in_path, out_path, args):
