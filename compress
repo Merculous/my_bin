@@ -54,7 +54,7 @@ def getPercentage(new, old):
 def determineScore(speed, compression):
     threshold = 1024
     speed = float(formatNumber(speed).split()[0])
-    score = (speed / threshold) * compression
+    score = ((speed + compression) / threshold) * 100
     return round(score, 4)
 
 
@@ -82,7 +82,7 @@ def getPathSize(src):
 
 def runCommand(args):
     start = time.perf_counter()
-    subprocess.run(args)
+    subprocess.run(args, stderr=subprocess.STDOUT)
     end = time.perf_counter() - start
     return end
 
@@ -131,6 +131,8 @@ def formatResults(results):
 
 def outputResults(info):
     info = formatResults(info)
+
+    sys.stderr.flush()
 
     sys.stderr.write(f'Command: {info["cmd"]}\n')
     sys.stderr.write(f'Input: {info["src"]}\n')
