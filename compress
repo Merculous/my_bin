@@ -142,6 +142,8 @@ def outputResults(info):
     sys.stderr.write(f'Speed: {info["speed"]}/s\n')
     sys.stderr.write(f'Score: {info["score"]}\n')
 
+    sys.stderr.write('\n')
+
 
 def go(in_path, out_path, args):
     info = {
