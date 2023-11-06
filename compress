@@ -87,28 +87,17 @@ def runCommand(args):
     return end
 
 
-def compress(cmd, in_path, out_path):
-    pass
-
-
-def extract(cmd, in_path, out_path):
-    pass
-
-
 def formCommand(cmd, in_path, out_path):
-    program = cmd[0]
+    new = cmd[:]
 
-    if program in ('7z', 'nz', 'zip', 'zpaq'):
-        if program == 'zpaq':
-            cmd[2:2] = [out_path, in_path]
+    for i, line in enumerate(cmd):
+        if line == '(in)':
+            new[i] = in_path
 
-        else:
-            cmd.extend((out_path, in_path))
+        if line == '(out)':
+            new[i] = out_path
 
-    else:
-        cmd.append(in_path)
-
-    return cmd
+    return new
 
 
 def formatResults(results):
@@ -186,7 +175,6 @@ def main():
 
     if args.i and args.o and args.args:
         go(args.i[0], args.o[0], args.args)
-
     else:
         parser.print_help()
 
