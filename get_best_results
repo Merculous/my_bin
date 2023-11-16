@@ -215,6 +215,8 @@ def printResults(results):
     sys.stderr.write(f'Speed: {speed[0]} {speed[1]}/s\n')
     sys.stderr.write(f'Score: {results["score"]}\n')
 
+    sys.stderr.write('\n')
+
 
 def go(path):
     text = readTextFile(path)
