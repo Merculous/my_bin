@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+
+import sys
+from argparse import ArgumentParser
+
+KB = 1 << 10
+MB = 1 << 20
+GB = 1 << 30
+
+
+def readTextFile(path):
+    with open(path) as f:
+        return f.readlines()
+
+
+def splitText(text):
+    sections = []
+
+    stop = 0
+
+    for i, line in enumerate(text):
+        if line == '\n':
+            section = text[stop:i]
+            sections.append(section)
+
+            stop = i + 1
+
+    return sections
+
+
+def multiplyAndFormatNumber(n, suffix):
+    number = None
+
+    if len(suffix) >= 3:
+        suffix = suffix[:2]
+
+    if suffix == 'KB':
+        number = n * KB
+
+    elif suffix == 'MB':
+        number = n * MB
+
+    elif suffix == 'GB':
+        number = n * GB
+
+    else:
+        raise Exception('WTF we got here?')
+
+    return number
+
+
+def divideAndFormatNumber(n):
+    number = None
+    suffix = None
+
+    if n >= KB and n < MB:
+        number = n / KB
+        suffix = 'KB'
+
+    elif n >= MB and n < GB:
+        number = n / MB
+        suffix = 'MB'
+
+    elif n >= GB:
+        number = n / GB
+        suffix = 'GB'
+
+    output = (round(number, 2), suffix)
+
+    return output
+
+
+def getPercentage(new, old):
+    return round((new / old) * 100, 2)
+
+
+def getCompression(src1, src2):
+    # Assuming src1 is input (before)
+    # Assuming src2 it output (after)
+
+    # Compression: Big -> Small
+    # input > output
+
+    # Decompression: Small -> Big
+    # input < output
+
+    compression = None
+
+    if src1 < src2:
+        # We can assume we are extracting
+
+        compression = getPercentage(src1, src2)
+
+    elif src1 > src2:
+        # We can assume we are compressing
+
+        compression = getPercentage(src2, src1)
+
+    elif src1 == src2:
+        # Something probably went wrong...
+        raise Exception('src1 and sr2 are the same!')
+
+    else:
+        pass
+
+    return compression
+
+def getValues(text):
+    sections = []
+
+    for section in text:
+        (
+            command,
+            in_path,
+            out_path,
+            compression,
+            duration,
+            speed,
+            score
+        ) = section
+
+        command = command.split()[1:]
+
+        duration = float(duration.split()[1])
+
+        in_path = in_path.split()[1:]
+
+        in_path[0] = float(in_path[0])
+
+        in_path = multiplyAndFormatNumber(*in_path)
+
+        out_path = out_path.split()[1:]
+
+        out_path[0] = float(out_path[0])
+
+        out_path = multiplyAndFormatNumber(*out_path)
+
+        speed = speed.split()[1:]
+
+        speed[0] = float(speed[0])
+
+        results = {
+            'command': ' '.join(command),
+            'duration': duration,
+            'in_size': in_path,
+            'out_size': out_path,
+            'compression': getCompression(in_path, out_path),
+            'speed': multiplyAndFormatNumber(*speed)
+        }
+
+        sections.append(results)
+
+    return sections
+
+
+def determineScore(speed, compression):
+    # This is my improved determineScore() function
+    # from "my_bin", but with updated weights to
+    # provide a better scoring system.
+
+    # This function was helped by ChatGPT :P
+
+    min_speed = 10 * MB # 10 MB/s
+    max_speed = GB # 1 GB/s
+
+    # Provide a penalty if speed < min_speed
+
+    # It is 0 if the speed is above the threshold,
+    # and it gradually increases as the speed drops below the threshold.
+    # -ChatGPT
+
+    speed_penalty = max(0, min_speed - speed) / min_speed
+
+    # Provide a bonus if speed > max_speed
+
+    # It is 1 if the speed is at or above the maximum achievable speed,
+    # and it gradually decreases as the speed approaches the threshold.
+    # -ChatGPT
+
+    speed_bonus = min(speed / max_speed, 1)
+
+    score = round(((speed_bonus - speed_penalty) + compression) / 2, 4)
+
+    return score
+
+
+def addScores(values):
+    for section in values:
+        speed = section['speed']
+        compression = section['compression']
+
+        score = determineScore(speed, compression)
+
+        section['score'] = score
+
+    return values
+
+
+def getBest(values):
+    return max(values, key=lambda x: x['score'])
+
+
+def printResults(results):
+    in_size = divideAndFormatNumber(results['in_size'])
+    out_size = divideAndFormatNumber(results['out_size'])
+    speed = divideAndFormatNumber(results['speed'])
+
+    sys.stderr.flush()
+
+    sys.stderr.write(f'Command: {results["command"]}\n')
+    sys.stderr.write(f'Duration: {results["duration"]} sec(s)\n')
+    sys.stderr.write(f'Input: {in_size[0]} {in_size[1]}\n')
+    sys.stderr.write(f'Output: {out_size[0]} {out_size[1]}\n')
+    sys.stderr.write(f'Compression: {results["compression"]}\n')
+    sys.stderr.write(f'Speed: {speed[0]} {speed[1]}/s\n')
+    sys.stderr.write(f'Score: {results["score"]}\n')
+
+
+def go(path):
+    text = readTextFile(path)
+    text_split = splitText(text)
+    values = getValues(text_split)
+    values = addScores(values)
+    best = getBest(values)
+    printResults(best)
+
+
+def main():
+    parser = ArgumentParser()
+
+    parser.add_argument('-i', nargs=1)
+
+    args = parser.parse_args()
+
+    if args.i:
+        go(args.i[0])
+    else:
+        parser.print_help()
+
+
+if __name__ == '__main__':
+    main()
