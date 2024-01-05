@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+
+import sys
+
+KB = 2 ** 10
+MB = 2 ** 20
+GB = 2 ** 30
+
+methods = {
+    1: (128, 32),
+    2: (450, 128),
+    3: (450, 400),
+    4: (550, 550),
+    5: (850, 850),
+}
+
+def main(args):
+    argc = len(args)
+
+    if argc != 4:
+        sys.exit(f'Usage: <level> <blocksize> <threads>')
+
+    level = int(args[1])
+    blocksize = int(args[2])
+    threads = int(args[3])
+
+    blocksize_multiplier = 8 if level != 5 else 16
+
+    # blocksize = 2 ** size MB
+
+    level = methods[level][0] * MB
+    blocksize = (2 ** blocksize) * MB
+
+    usage = (((blocksize_multiplier * blocksize) + level) * threads) / GB
+
+    print(f'Usage: {usage:.4f} GB')
+
+
+if __name__ == '__main__':
+    main(sys.argv)
