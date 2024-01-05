@@ -17,18 +17,29 @@ methods = {
 def main(args):
     argc = len(args)
 
-    if argc != 4:
+    if argc != 5:
         sys.exit(f'Usage: <level> <blocksize> <threads>')
 
-    level = int(args[1])
-    blocksize = int(args[2])
-    threads = int(args[3])
+    _mode = args[1]
+
+    if _mode == 'a':
+        _mode = 0
+
+    elif _mode == 'x':
+        _mode = 1
+
+    else:
+        sys.exit(f'Unknown mode: {_mode}')
+
+    level = int(args[2])
+    blocksize = int(args[3])
+    threads = int(args[4])
 
     blocksize_multiplier = 8 if level != 5 else 16
 
     # blocksize = 2 ** size MB
 
-    level = methods[level][0] * MB
+    level = methods[level][_mode] * MB
     blocksize = (2 ** blocksize) * MB
 
     usage = (((blocksize_multiplier * blocksize) + level) * threads) / GB
