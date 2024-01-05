@@ -18,7 +18,7 @@ def main(args):
     argc = len(args)
 
     if argc != 5:
-        sys.exit(f'Usage: <level> <blocksize> <threads>')
+        sys.exit(f'Usage: <mode> <level> <blocksize> <threads>')
 
     _mode = args[1]
 
