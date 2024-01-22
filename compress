@@ -5,166 +5,192 @@ import sys
 import time
 from argparse import ArgumentParser, REMAINDER
 from pathlib import Path
+from typing import Generator
 
-KB = 1 << 10
-MB = 1 << 20
-GB = 1 << 30
+suffixes = {
+    'KiB': 2 ** 10,
+    'MiB': 2 ** 20,
+    'GiB': 2 ** 30
+}
+
+KiB = suffixes['KiB']
+MiB = suffixes['MiB']
+GiB = suffixes['GiB']
 
 
-def determineNumberSuffix(n):
+def determineNumberSuffix(number: float) -> str:
     suffix = None
 
-    if n >= KB and n < MB:
-        suffix = 'KB'
+    if number < MiB:
+        suffix = 'KiB'
 
-    elif n >= MB and n < GB:
-        suffix = 'MB'
+    elif number >= MiB and number < GiB:
+        suffix = 'MiB'
 
-    elif n >= GB:
-        suffix = 'GB'
+    elif number >= GiB:
+        suffix = 'GiB'
 
     return suffix
 
 
-def formatNumber(n):
-    suffix = determineNumberSuffix(n)
-
-    number = None
-
-    if suffix == 'KB':
-        number = n / KB
-
-    elif suffix == 'MB':
-        number = n / MB
-
-    elif suffix == 'GB':
-        number = n / GB
-
-    return f'{round(number, 2)} {suffix}'
+def divideNumberAndFormat(number: float) -> tuple:
+    suffix = determineNumberSuffix(number)
+    number = number / suffixes[suffix]
+    return number, suffix
 
 
-def getSpeed(size, duration):
-    return size / duration
+def multiplyNumberAndFormat(number: float, suffix: str) -> tuple:
+    number = number * suffixes[suffix]
+    return number, suffix
 
 
-def getPercentage(new, old):
-    return new / old
+def formatDirectorySize(number: float, blocksize: float, blocks: float) -> float:
+    # This is to provide a "du -sh" like output
+    stat_size = (blocks * blocksize) / KiB
+    size, suffix = divideNumberAndFormat(number)
+    real = multiplyNumberAndFormat(size % stat_size, suffix)
+    return real
 
 
-def determineScore(speed, compression):
-    threshold = 1024
-    speed = float(formatNumber(speed).split()[0])
-    score = ((speed + compression) / threshold) * 100
-    return round(score, 4)
+def getFileSize(path: Path) -> int:
+    if not path.is_file():
+        return None
+
+    size = path.stat().st_size
+    return size
 
 
-def getCompression(new, old):
-    return round(getPercentage(new, old) * 100, 2)
+def getDirectoryContents(directory: Path) -> Generator:
+    if not directory.is_dir():
+        return None
+
+    contents = directory.rglob('*')
+    return contents
 
 
-def getFileSize(src):
-    return Path(src).stat().st_size
+def getDirectorySize(directory: Path) -> int:
+    stat = directory.stat()
+
+    blocks = stat.st_blocks
+    blocksize = stat.st_blksize
+
+    contents = getDirectoryContents(directory)
+
+    sizes = 0
+
+    for path in contents:
+        path_size = getFileSize(path)
+
+        if not path_size:
+            continue
+
+        sizes += path_size
+
+    formatted = formatDirectorySize(sizes, blocksize, blocks)
+
+    return formatted
 
 
-def getPathSize(src):
-    src = Path(src)
+def getPathSize(path: Path) -> int:
+    size = 0
 
-    size = None
-
-    if src.is_file():
-        size = getFileSize(src)
-
-    elif src.is_dir():
-        size = sum(getFileSize(x) for x in Path(src).rglob('*'))
+    if path.is_dir():
+        size = getDirectorySize(path)[0]
+    else:
+        size = getFileSize(path)
 
     return size
 
 
-def runCommand(args):
+def getCompression(new_size: float, old_size: float) -> float:
+    compression = 100 - ((new_size / old_size) * 100)
+    return compression
+
+
+def getSpeed(size: float, duration: float) -> float:
+    speed = size / duration
+    return speed
+
+
+def determineScore(speed: float, compression: float) -> float:
+    score = (GiB / speed) / compression
+    return score
+
+
+def runCommand(command: tuple) -> float:
     start = time.perf_counter()
-    subprocess.run(args, stderr=subprocess.STDOUT)
+    subprocess.run(command)
     end = time.perf_counter() - start
     return end
 
 
-def formCommand(cmd, in_path, out_path):
-    new = cmd[:]
-
-    for i, line in enumerate(cmd):
-        if line == '(in)':
-            new[i] = in_path
-
-        if line == '(out)':
-            new[i] = out_path
-
-    return new
+def printMessage(message: str) -> int:
+    return sys.stderr.write(f'{message}\n')
 
 
-def formatResults(results):
-    results['src'] = formatNumber(results['src'][1])
-
-    results['dst'] = formatNumber(results['dst'][1])
-
-    results['cmd'] = ' '.join(results['cmd'])
-
-    results['compression'] = f'{results["compression"]}%'
-
-    results['duration'] = f'{round(results["duration"], 2)} sec(s)'
-
-    results['score'] = str(results['score'])
-
-    results['speed'] = formatNumber(results['speed'])
-
-    return results
+def formatNumber(number: float) -> str:
+    formatted, suffix = divideNumberAndFormat(number)
+    string = f'{formatted:.2f} {suffix}'
+    return string
 
 
-def outputResults(info):
-    info = formatResults(info)
+def printResults(
+    command: tuple,
+    input_size: int,
+    output_size: int,
+    compression: float,
+    duration: float,
+    speed: float,
+    score: float
+) -> None:
 
-    sys.stderr.flush()
-
-    sys.stderr.write(f'Command: {info["cmd"]}\n')
-    sys.stderr.write(f'Input: {info["src"]}\n')
-    sys.stderr.write(f'Output: {info["dst"]}\n')
-    sys.stderr.write(f'Compression: {info["compression"]}\n')
-    sys.stderr.write(f'Duration: {info["duration"]}\n')
-    sys.stderr.write(f'Speed: {info["speed"]}/s\n')
-    sys.stderr.write(f'Score: {info["score"]}\n')
-
-    sys.stderr.write('\n')
-
-
-def go(in_path, out_path, args):
-    info = {
-        'src': None,
-        'dst': None,
-        'cmd': None,
-        'compression': None,
-        'duration': None,
-        'score': None,
-        'speed': None
-    }
-
-    info['src'] = [in_path, getPathSize(in_path)]
-
-    info['dst'] = [out_path]
-
-    info['cmd'] = formCommand(args, info['src'][0], info['dst'][0])
-
-    info['duration'] = runCommand(info['cmd'])
-
-    info['dst'].append(getPathSize(info['dst'][0]))
-
-    info['compression'] = getCompression(info['dst'][1], info['src'][1])
-
-    info['speed'] = getSpeed(info['src'][1], info['duration'])
-
-    info['score'] = determineScore(info['speed'], info['compression'])
-
-    outputResults(info)
+    printMessage(f'Command: {command}')
+    printMessage(f'Input: {input_size}')
+    printMessage(f'Output: {output_size}')
+    printMessage(f'Compression: {compression}')
+    printMessage(f'Duration: {duration}')
+    printMessage(f'Speed: {speed}')
+    printMessage(f'Score: {score}')
 
 
-def main():
+def go(input_path: Path, output_path: Path, args: list) -> None:
+    symbols = ('(in)', '(out)')
+
+    if symbols[0] not in args:
+        printMessage(f'"{symbols[0]}" MUST be passed!')
+        return
+
+    args[args.index(symbols[0])] = str(input_path)
+
+    if symbols[1] in args:
+        args[args.index(symbols[1])] = str(output_path)
+
+    input_size = getPathSize(input_path)
+
+    duration = runCommand(args)
+
+    speed = getSpeed(input_size, duration)
+
+    output_size = getPathSize(output_path)
+
+    compression = getCompression(output_size, input_size)
+
+    score = determineScore(speed, compression)
+
+    results = (
+        ' '.join(args),
+        formatNumber(input_size),
+        formatNumber(output_size),
+        f'{compression:.2f}%',
+        f'{duration:.4f} sec(s)',
+        f'{formatNumber(speed)}/s',
+        f'{score:.4f}'
+    )
+
+    printResults(*results)
+
+
+def main() -> None:
     parser = ArgumentParser()
 
     parser.add_argument('-i', nargs=1, metavar='input')
@@ -174,7 +200,7 @@ def main():
     args = parser.parse_args()
 
     if args.i and args.o and args.args:
-        go(args.i[0], args.o[0], args.args)
+        go(Path(args.i[0]), Path(args.o[0]), args.args)
     else:
         parser.print_help()
 
