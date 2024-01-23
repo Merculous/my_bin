@@ -69,10 +69,10 @@ def getDirectoryContents(directory: Path) -> Generator:
 
 
 def getDirectorySize(directory: Path) -> int:
-    stat = directory.stat()
+    # stat = directory.stat()
 
-    blocks = stat.st_blocks
-    blocksize = stat.st_blksize
+    # blocks = stat.st_blocks
+    # blocksize = stat.st_blksize
 
     contents = getDirectoryContents(directory)
 
@@ -86,16 +86,16 @@ def getDirectorySize(directory: Path) -> int:
 
         sizes += path_size
 
-    formatted = formatDirectorySize(sizes, blocksize, blocks)
+    # formatted = formatDirectorySize(sizes, blocksize, blocks)
 
-    return formatted
+    return sizes
 
 
 def getPathSize(path: Path) -> int:
     size = 0
 
     if path.is_dir():
-        size = getDirectorySize(path)[0]
+        size = getDirectorySize(path)
     else:
         size = getFileSize(path)
 
