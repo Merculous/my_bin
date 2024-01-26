@@ -113,7 +113,7 @@ def getSpeed(size: float, duration: float) -> float:
 
 
 def determineScore(speed: float, compression: float) -> float:
-    score = (GiB / speed) / compression
+    score = (speed / GiB) * compression
     return score
 
 
