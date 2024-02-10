@@ -134,12 +134,60 @@ def formatNumber(number: float) -> str:
     return string
 
 
+def formatDuration(number: float) -> str:
+    DAY = 86_400
+    HOUR = 3_600
+    MINUTE = 60
+
+    tmp = number
+
+    days = 0
+    hours = 0
+    minutes = 0
+    seconds = 0
+
+    string = ''
+
+    if tmp % DAY != tmp:
+        days, remainder = divmod(tmp, DAY)
+
+        string += str(f'{days:.0f} day(s)')
+
+        if remainder != 0:
+            tmp = remainder
+
+    if tmp % HOUR != tmp:
+        hours, remainder = divmod(tmp, HOUR)
+
+        string += str(f' {hours:.0f} hour(s)')
+
+        if remainder != 0:
+            tmp = remainder
+
+    if tmp % MINUTE != tmp:
+        minutes, remainder = divmod(tmp, MINUTE)
+
+        string += str(f' {minutes:.0f} minute(s)')
+
+        if remainder != 0:
+            tmp = remainder
+
+    if tmp != 0:
+        # I'm sure this can be made better
+        seconds = tmp
+        string += str(f' {seconds:.0f} second(s)')
+
+    string = string.strip()
+
+    return string
+
+
 def printResults(
     command: tuple,
     input_size: int,
     output_size: int,
     compression: float,
-    duration: float,
+    duration: str,
     speed: float,
     score: float
 ) -> None:
@@ -182,7 +230,7 @@ def go(input_path: Path, output_path: Path, args: list) -> None:
         formatNumber(input_size),
         formatNumber(output_size),
         f'{compression:.2f}%',
-        f'{duration:.4f} sec(s)',
+        formatDuration(duration),
         f'{formatNumber(speed)}/s',
         f'{score:.4f}'
     )
