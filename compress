@@ -7,60 +7,65 @@ from argparse import ArgumentParser, REMAINDER
 from pathlib import Path
 from typing import Generator
 
-suffixes = {
-    'KiB': 2 ** 10,
-    'MiB': 2 ** 20,
-    'GiB': 2 ** 30
+SUFFIXES = {
+    'KIB': 2 ** 10,
+    'MIB': 2 ** 20,
+    'GIB': 2 ** 30
 }
 
-KiB = suffixes['KiB']
-MiB = suffixes['MiB']
-GiB = suffixes['GiB']
+KIB = SUFFIXES['KIB']
+MIB = SUFFIXES['MIB']
+GIB = SUFFIXES['GIB']
 
 
 def determineNumberSuffix(number: float) -> str:
-    suffix = None
+    suffix = ''
 
-    if number < MiB:
-        suffix = 'KiB'
+    if number < MIB:
+        suffix += 'KIB'
 
-    elif number >= MiB and number < GiB:
-        suffix = 'MiB'
+    elif number >= MIB and number < GIB:
+        suffix += 'MIB'
 
-    elif number >= GiB:
-        suffix = 'GiB'
+    elif number >= GIB:
+        suffix += 'GIB'
+
+    else:
+        raise Exception('How did we get here?')
 
     return suffix
 
 
 def divideNumberAndFormat(number: float) -> tuple:
     suffix = determineNumberSuffix(number)
-    number = number / suffixes[suffix]
+    number = number / SUFFIXES[suffix]
     return number, suffix
 
 
 def multiplyNumberAndFormat(number: float, suffix: str) -> tuple:
-    number = number * suffixes[suffix]
+    number = number * SUFFIXES[suffix]
     return number, suffix
 
 
-def formatDirectorySize(number: float, blocksize: float, blocks: float) -> float:
+def formatDirectorySize(n: float, blocksize: float, blocks: float) -> float:
     # This is to provide a "du -sh" like output
-    stat_size = (blocks * blocksize) / KiB
-    size, suffix = divideNumberAndFormat(number)
+    stat_size = (blocks * blocksize) / KIB
+    size, suffix = divideNumberAndFormat(n)
     real = multiplyNumberAndFormat(size % stat_size, suffix)
     return real
 
 
 def getFileSize(path: Path) -> int:
-    if not path.is_file():
-        return None
+    size = 0
 
-    size = path.stat().st_size
+    if not path.is_file():
+        return size
+
+    size += path.stat().st_size
     return size
 
 
-def getDirectoryContents(directory: Path) -> Generator:
+def getDirectoryContents(directory: Path) -> Generator | None:
     if not directory.is_dir():
         return None
 
@@ -74,16 +79,15 @@ def getDirectorySize(directory: Path) -> int:
     # blocks = stat.st_blocks
     # blocksize = stat.st_blksize
 
+    sizes = 0
     contents = getDirectoryContents(directory)
 
-    sizes = 0
+    if not contents:
+        # "directory" is not a directory!
+        return sizes
 
     for path in contents:
         path_size = getFileSize(path)
-
-        if not path_size:
-            continue
-
         sizes += path_size
 
     # formatted = formatDirectorySize(sizes, blocksize, blocks)
@@ -95,9 +99,9 @@ def getPathSize(path: Path) -> int:
     size = 0
 
     if path.is_dir():
-        size = getDirectorySize(path)
+        size += getDirectorySize(path)
     else:
-        size = getFileSize(path)
+        size += getFileSize(path)
 
     return size
 
@@ -113,7 +117,7 @@ def getSpeed(size: float, duration: float) -> float:
 
 
 def determineScore(speed: float, compression: float) -> float:
-    score = (speed / GiB) * compression
+    score = (speed / GIB) * compression
     return score
 
 
