@@ -36,13 +36,13 @@ def determineNumberSuffix(number: float) -> str:
     return suffix
 
 
-def divideNumberAndFormat(number: float) -> tuple:
+def divideNumberAndFormat(number: float) -> tuple[float, str]:
     suffix = determineNumberSuffix(number)
     number = number / SUFFIXES[suffix]
     return number, suffix
 
 
-def multiplyNumberAndFormat(number: float, suffix: str) -> tuple:
+def multiplyNumberAndFormat(number: float, suffix: str) -> tuple[float, str]:
     number = number * SUFFIXES[suffix]
     return number, suffix
 
@@ -51,7 +51,7 @@ def formatDirectorySize(n: float, blocksize: float, blocks: float) -> float:
     # This is to provide a "du -sh" like output
     stat_size = (blocks * blocksize) / KIB
     size, suffix = divideNumberAndFormat(n)
-    real = multiplyNumberAndFormat(size % stat_size, suffix)
+    real, _ = multiplyNumberAndFormat(size % stat_size, suffix)
     return real
 
 
@@ -67,7 +67,7 @@ def getFileSize(path: Path) -> int:
 
 def getDirectoryContents(directory: Path) -> Generator | None:
     if not directory.is_dir():
-        return None
+        return
 
     contents = directory.rglob('*')
     return contents
@@ -121,7 +121,7 @@ def determineScore(speed: float, compression: float) -> float:
     return score
 
 
-def runCommand(command: tuple) -> float:
+def runCommand(command: list[str]) -> float:
     start = time.perf_counter()
     subprocess.run(command)
     end = time.perf_counter() - start
@@ -187,13 +187,13 @@ def formatDuration(number: float) -> str:
 
 
 def printResults(
-    command: tuple,
-    input_size: int,
-    output_size: int,
-    compression: float,
+    command: str,
+    input_size: str,
+    output_size: str,
+    compression: str,
     duration: str,
-    speed: float,
-    score: float
+    speed: str,
+    score: str
 ) -> None:
 
     printMessage(f'Command: {command}')
@@ -205,7 +205,7 @@ def printResults(
     printMessage(f'Score: {score}')
 
 
-def go(input_path: Path, output_path: Path, args: list) -> None:
+def go(input_path: Path, output_path: Path, args: list[str]) -> None:
     symbols = ('(in)', '(out)')
 
     if symbols[0] not in args:
@@ -251,10 +251,11 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.i and args.o and args.args:
-        go(Path(args.i[0]), Path(args.o[0]), args.args)
-    else:
+    if not all((args.i, args.o, args.args)):
         parser.print_help()
+        return
+
+    go(Path(args.i[0]), Path(args.o[0]), args.args)
 
 
 if __name__ == '__main__':
