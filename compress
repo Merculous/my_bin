@@ -106,8 +106,19 @@ def getPathSize(path: Path) -> int:
     return size
 
 
-def getCompression(new_size: float, old_size: float) -> float:
-    compression = 100 - ((new_size / old_size) * 100)
+def getCompression(input_size: int, output_size: int) -> float:
+    compression = 0
+
+    if input_size == output_size:
+        return compression
+
+    if input_size > output_size:
+        # Compression
+        compression += 100 - ((output_size / input_size) * 100)
+    else:
+        # Decompression
+        compression += 100 - ((input_size / output_size) * 100)
+
     return compression
 
 
@@ -225,7 +236,7 @@ def go(input_path: Path, output_path: Path, args: list[str]) -> None:
 
     output_size = getPathSize(output_path)
 
-    compression = getCompression(output_size, input_size)
+    compression = getCompression(input_size, output_size)
 
     score = determineScore(speed, compression)
 
