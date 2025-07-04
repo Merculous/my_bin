@@ -1,0 +1,54 @@
+#!/bin/sh
+
+gawk -v RS='\n\n' -v ORS='\n\n' '
+BEGIN {
+    # Initialize arrays
+    delete records
+    delete scores
+}
+{
+    # Remove leading/trailing whitespace from the record
+    rec = $0
+    sub(/^[ \t\n]+/, "", rec)
+    sub(/[ \t\n]+$/, "", rec)
+    
+    # Extract score by searching line-by-line
+    score = 0
+    split(rec, lines, "\n")
+    for (i in lines) {
+        if (lines[i] ~ /^Score:[ \t]*[0-9]+(\.[0-9]+)?/) {
+            split(lines[i], arr, ":")
+            score = arr[2] + 0  # Convert to number, trim whitespace
+            break
+        }
+    }
+    
+    # Store record and score
+    records[NR] = rec
+    scores[NR] = score
+}
+END {
+    # Bubble sort for descending order
+    n = NR
+    for (i = 1; i < n; i++) {
+        for (j = 1; j <= n-i; j++) {
+            if (scores[j] < scores[j+1]) {
+                # Swap scores
+                temp_score = scores[j]
+                scores[j] = scores[j+1]
+                scores[j+1] = temp_score
+                # Swap records
+                temp_record = records[j]
+                records[j] = records[j+1]
+                records[j+1] = temp_record
+            }
+        }
+    }
+    
+    # Print sorted records
+    for (i = 1; i <= n; i++) {
+        if (records[i] != "") {
+            print records[i]
+        }
+    }
+}' "$@"
